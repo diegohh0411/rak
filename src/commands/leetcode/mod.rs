@@ -11,6 +11,9 @@ pub enum LeetcodeCommand {
         id: String,
         /// Self-assessed rating (1-5)
         rating: u8,
+        /// Replace today's attempt if one already exists
+        #[arg(long)]
+        force: bool,
     },
     /// Show problems due for review
     Next {
@@ -22,7 +25,7 @@ pub enum LeetcodeCommand {
 
 pub async fn run(cmd: LeetcodeCommand) -> Result<(), String> {
     match cmd {
-        LeetcodeCommand::Log { id, rating } => log::run(id, rating),
+        LeetcodeCommand::Log { id, rating, force } => log::run(id, rating, force),
         LeetcodeCommand::Next { count } => next::run(count),
     }
 }
