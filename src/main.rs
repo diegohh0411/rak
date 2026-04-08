@@ -3,7 +3,7 @@ mod history;
 mod leitner;
 
 use clap::{Parser, Subcommand};
-use commands::{init, scrape};
+use commands::{init, leetcode, scrape};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship app workflows")]
@@ -16,6 +16,12 @@ struct Cli {
 enum Command {
     /// Bootstrap .env and .gitignore in the current directory
     Init,
+    /// LeetCode study tools (spaced repetition, problem management)
+    #[command(alias = "leet", alias = "l")]
+    Leetcode {
+        #[command(subcommand)]
+        command: leetcode::LeetcodeCommand,
+    },
     /// Scrape a URL to markdown via headless Chrome
     Scrape {
         /// URL to scrape
@@ -35,6 +41,7 @@ async fn main() {
 
     let result = match cli.command {
         Command::Init => init::run(),
+        Command::Leetcode { command } => leetcode::run(command).await,
         Command::Scrape { url, output } => scrape::run(url, output).await,
     };
 
