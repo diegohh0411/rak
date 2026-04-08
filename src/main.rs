@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 use commands::{init, leetcode, scrape};
 
 #[derive(Parser)]
-#[command(name = "rak", about = "Rust Application Killer — internship app workflows")]
+#[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
 struct Cli {
     #[command(subcommand)]
     command: Command,

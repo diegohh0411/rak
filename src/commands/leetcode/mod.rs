@@ -10,6 +10,13 @@ pub enum LeetcodeCommand {
         /// LeetCode problem ID
         id: String,
         /// Self-assessed rating (1-5)
+        ///
+        /// Rating scale:
+        ///   5 — Solved perfectly, no issues
+        ///   4 — Solved with minor hesitation
+        ///   3 — Solved but had to consult external syntax reference
+        ///   2 — Struggled significantly, needed major help
+        ///   1 — Couldn't solve it without AI/Web giving me the answer
         rating: u8,
         /// Replace today's attempt if one already exists
         #[arg(long)]
