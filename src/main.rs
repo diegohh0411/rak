@@ -1,4 +1,5 @@
 mod commands;
+mod history;
 mod leitner;
 
 use clap::{Parser, Subcommand};
