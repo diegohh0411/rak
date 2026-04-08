@@ -1,4 +1,5 @@
 mod commands;
+mod leitner;
 
 use clap::{Parser, Subcommand};
 use commands::{init, scrape};
