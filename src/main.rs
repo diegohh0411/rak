@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod recorder;
 mod history;
 mod leitner;
 mod stt;
