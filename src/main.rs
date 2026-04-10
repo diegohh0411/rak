@@ -2,6 +2,7 @@ mod commands;
 mod config;
 mod history;
 mod leitner;
+mod stt;
 
 use clap::{Parser, Subcommand};
 use commands::{init, log, next, scrape};

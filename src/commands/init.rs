@@ -115,13 +115,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let orig = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
-        run().unwrap();
-        let content = fs::read_to_string("rak.toml").unwrap();
+        let result = run();
+        std::env::set_current_dir(orig).unwrap();
+        result.unwrap();
+        let content = fs::read_to_string(dir.path().join("rak.toml")).unwrap();
         assert!(content.contains("leetcode_dir"));
         assert!(content.contains("[transcribe]"));
         assert!(content.contains("elevenlabs"));
         assert!(content.contains("openrouter"));
-        std::env::set_current_dir(orig).unwrap();
     }
 
     #[test]
@@ -129,10 +130,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let orig = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
-        run().unwrap();
-        let content = fs::read_to_string(".env").unwrap();
+        let result = run();
+        std::env::set_current_dir(orig).unwrap();
+        result.unwrap();
+        let content = fs::read_to_string(dir.path().join(".env")).unwrap();
         assert!(content.contains("ELEVENLABS_API_KEY"));
         assert!(content.contains("OPENROUTER_API_KEY"));
-        std::env::set_current_dir(orig).unwrap();
     }
 }
