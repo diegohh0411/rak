@@ -2,7 +2,7 @@ use std::fs;
 
 const ENV_KEYS: &[(&str, &str)] = &[("ELEVENLABS_API_KEY", ""), ("OPENROUTER_API_KEY", "")];
 
-const RAK_TOML_TEMPLATE: &str = r#"leetcode_dir = "leetcode/solutions/cpp"
+const RAK_TOML_TEMPLATE: &str = r#"leetcode_dir = "./cpp"
 
 [transcribe]
 default_provider = "elevenlabs"
