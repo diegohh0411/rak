@@ -47,10 +47,10 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
         match transcriber.transcribe(&audio_path) {
             Ok(text) if !text.is_empty() => {
                 let mut content = text;
-                if let Some(dur) = audio_duration(&audio_path) {
-                    if !dur.is_empty() {
-                        content.push_str(&format!("\n\n---\nAudio duration: {dur}\n"));
-                    }
+                if let Some(dur) = audio_duration(&audio_path)
+                    && !dur.is_empty()
+                {
+                    content.push_str(&format!("\n\n---\nAudio duration: {dur}\n"));
                 }
 
                 let caps = re.captures(audio_file).unwrap();
