@@ -1,10 +1,35 @@
 use std::fs;
 
-const ENV_KEYS: &[(&str, &str)] = &[];
+const ENV_KEYS: &[(&str, &str)] = &[("ELEVENLABS_API_KEY", ""), ("OPENROUTER_API_KEY", "")];
+
+const RAK_TOML_TEMPLATE: &str = r#"leetcode_dir = "leetcode/solutions/cpp"
+
+[transcribe]
+default_provider = "elevenlabs"
+
+[transcribe.providers.elevenlabs]
+api_key = ""
+
+[transcribe.providers.openrouter]
+api_key = ""
+model = "google/gemini-flash-2.5-lite"
+"#;
 
 pub fn run() -> Result<(), String> {
+    init_rak_toml()?;
     init_env()?;
     init_gitignore()?;
+    Ok(())
+}
+
+fn init_rak_toml() -> Result<(), String> {
+    let path = "rak.toml";
+    if std::fs::exists(path).map_err(|e| e.to_string())? {
+        eprintln!("rak.toml already exists");
+        return Ok(());
+    }
+    std::fs::write(path, RAK_TOML_TEMPLATE).map_err(|e| e.to_string())?;
+    eprintln!("Created rak.toml");
     Ok(())
 }
 
@@ -27,9 +52,9 @@ fn init_env() -> Result<(), String> {
     let mut additions = Vec::new();
 
     for (key, placeholder) in ENV_KEYS {
-        let has_key = existing.lines().any(|line| {
-            line.starts_with(&format!("{key}="))
-        });
+        let has_key = existing
+            .lines()
+            .any(|line| line.starts_with(&format!("{key}=")));
         if !has_key {
             additions.push(format!("{key}={placeholder}"));
             eprintln!("Added {key} to .env");
@@ -78,4 +103,36 @@ fn init_gitignore() -> Result<(), String> {
     eprintln!("Added .env to .gitignore");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn init_creates_rak_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+        run().unwrap();
+        let content = fs::read_to_string("rak.toml").unwrap();
+        assert!(content.contains("leetcode_dir"));
+        assert!(content.contains("[transcribe]"));
+        assert!(content.contains("elevenlabs"));
+        assert!(content.contains("openrouter"));
+        std::env::set_current_dir(orig).unwrap();
+    }
+
+    #[test]
+    fn init_creates_env_with_api_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let orig = std::env::current_dir().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+        run().unwrap();
+        let content = fs::read_to_string(".env").unwrap();
+        assert!(content.contains("ELEVENLABS_API_KEY"));
+        assert!(content.contains("OPENROUTER_API_KEY"));
+        std::env::set_current_dir(orig).unwrap();
+    }
 }
