@@ -4,7 +4,7 @@ mod history;
 mod leitner;
 
 use clap::{Parser, Subcommand};
-use commands::{init, leetcode, scrape};
+use commands::{init, log, next, scrape};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
@@ -15,19 +15,27 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Bootstrap .env and .gitignore in the current directory
+    /// Bootstrap rak.toml, .env and .gitignore in the current directory
     Init,
-    /// LeetCode study tools (spaced repetition, problem management)
-    #[command(alias = "leet", alias = "l")]
-    Leetcode {
-        #[command(subcommand)]
-        command: leetcode::LeetcodeCommand,
+    /// Record a problem attempt with a rating
+    Log {
+        /// LeetCode problem ID
+        id: String,
+        /// Self-assessed rating (1-5)
+        rating: u8,
+        /// Replace today's attempt if one already exists
+        #[arg(long)]
+        force: bool,
+    },
+    /// Show problems due for review
+    Next {
+        /// Number of problems to show
+        #[arg(short, long, default_value_t = 10)]
+        count: usize,
     },
     /// Scrape a URL to markdown via headless Chrome
     Scrape {
-        /// URL to scrape
         url: String,
-        /// Write output to a file instead of stdout
         #[arg(short, long)]
         output: Option<String>,
     },
@@ -35,14 +43,14 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
-    // Best-effort: load .env from current dir, no error if missing
     let _ = dotenvy::dotenv();
 
     let cli = Cli::parse();
 
     let result = match cli.command {
         Command::Init => init::run(),
-        Command::Leetcode { command } => leetcode::run(command).await,
+        Command::Log { id, rating, force } => log::run(id, rating, force),
+        Command::Next { count } => next::run(count),
         Command::Scrape { url, output } => scrape::run(url, output).await,
     };
 
