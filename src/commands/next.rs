@@ -2,7 +2,7 @@ use std::path::Path;
 
 use chrono::{Local, NaiveDate};
 
-use crate::history::{self, History, Problem};
+use crate::history::{self, History};
 
 const DEFAULT_HISTORY: &str = "history.yaml";
 
@@ -28,8 +28,8 @@ pub fn run(count: usize) -> Result<(), String> {
     }
 
     println!(
-        " {:<5} {:<30} {:<4} {:<12} {:<8} {:<8} {}",
-        "#", "PROBLEM", "BOX", "LAST", "RATING", "DUE", "STREAK"
+        " {:<5} {:<30} {:<4} {:<12} {:<8} {:<8} STREAK",
+        "#", "PROBLEM", "BOX", "LAST", "RATING", "DUE"
     );
 
     for item in &due {
@@ -120,7 +120,7 @@ fn next_upcoming(history: &History, today: NaiveDate) -> Option<(String, i64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::history::{Attempt, History};
+    use crate::history::{Attempt, History, Problem};
 
     fn make_problem(box_num: u8, last_review: NaiveDate, rating: u8) -> Problem {
         Problem {

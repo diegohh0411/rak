@@ -63,7 +63,7 @@ pub fn analyze_bands(samples: &[f64], num_bands: usize) -> Vec<f64> {
 
     let mut bands = vec![0.0; num_bands];
 
-    for i in 0..num_bands {
+    for (i, band) in bands.iter_mut().enumerate() {
         let lo = min_freq * ratio.powf(i as f64 / num_bands as f64);
         let hi = min_freq * ratio.powf((i + 1) as f64 / num_bands as f64);
         let lo_bin = (lo / bin_hz) as usize;
@@ -78,7 +78,7 @@ pub fn analyze_bands(samples: &[f64], num_bands: usize) -> Vec<f64> {
             }
         }
         if count > 0 {
-            bands[i] = sum / count as f64;
+            *band = sum / count as f64;
         }
     }
 

@@ -13,11 +13,11 @@ pub async fn run(url: String, output: Option<String>) -> Result<(), String> {
 
     match output {
         Some(path) => {
-            if let Some(parent) = Path::new(&path).parent() {
-                if !parent.as_os_str().is_empty() {
-                    fs::create_dir_all(parent)
-                        .map_err(|e| format!("failed to create dirs: {e}"))?;
-                }
+            if let Some(parent) = Path::new(&path).parent()
+                && !parent.as_os_str().is_empty()
+            {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("failed to create dirs: {e}"))?;
             }
             fs::write(&path, &markdown).map_err(|e| format!("failed to write file: {e}"))?;
             eprintln!("Written to {path}");

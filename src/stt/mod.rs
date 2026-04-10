@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 
 pub trait Transcriber: Send + Sync {
+    #[allow(dead_code)]
     fn name(&self) -> &str;
     fn transcribe(&self, audio_path: &Path) -> Result<String, String>;
 }

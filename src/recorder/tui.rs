@@ -37,7 +37,7 @@ pub fn num_bands_for_width(w: usize) -> usize {
     if w == 0 {
         return 16;
     }
-    let n = (w + 1) / 2;
+    let n = w.div_ceil(2);
     if n < 4 {
         4
     } else {
@@ -124,61 +124,54 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
     let mut start = Instant::now();
     let mut elapsed = Duration::ZERO;
     let mut width: usize = 80;
-    let result;
-
-    loop {
-        if event::poll(Duration::from_millis(TICK_MS)).map_err(|e| format!("poll: {e}"))? {
-            if let Event::Key(key) = event::read().map_err(|e| format!("read event: {e}"))? {
-                match (key.code, key.modifiers) {
-                    (KeyCode::Char('q'), _) | (KeyCode::Enter, _) => {
-                        status = Status::Stopping;
-                        let _ = terminal.draw(|frame| {
-                            let area = frame.area();
-                            frame.render_widget(
-                                view(&status, elapsed, filename, &vec![], width),
-                                area,
-                            );
-                        });
-                        drop(pipe_reader);
-                        let stop_result = stop_recording(&mut recording.child);
-                        if let Err(e) = stop_result {
-                            status = Status::Error(e);
-                        } else {
-                            status = Status::Done;
-                        }
-                        let _ = terminal.draw(|frame| {
-                            let area = frame.area();
-                            frame.render_widget(
-                                view(&status, elapsed, filename, &vec![], width),
-                                area,
-                            );
-                        });
-                        break;
+    let result = 'outer: loop {
+        if event::poll(Duration::from_millis(TICK_MS)).map_err(|e| format!("poll: {e}"))?
+            && let Event::Key(key) = event::read().map_err(|e| format!("read event: {e}"))?
+        {
+            match (key.code, key.modifiers) {
+                (KeyCode::Char('q'), _) | (KeyCode::Enter, _) => {
+                    status = Status::Stopping;
+                    let _ = terminal.draw(|frame| {
+                        let area = frame.area();
+                        frame.render_widget(view(&status, elapsed, filename, &[], width), area);
+                    });
+                    drop(pipe_reader);
+                    let stop_result = stop_recording(&mut recording.child);
+                    if let Err(e) = stop_result {
+                        status = Status::Error(e);
+                    } else {
+                        status = Status::Done;
                     }
-                    (KeyCode::Char(' '), _) => {
-                        if can_pause && status == Status::Recording {
-                            let _ = pause_recording(&mut recording.child);
-                            status = Status::Paused;
-                        } else if can_pause && status == Status::Paused {
-                            let _ = resume_recording(&mut recording.child);
-                            status = Status::Recording;
-                            start = Instant::now() - elapsed;
-                        }
-                    }
-                    (KeyCode::Char('c'), KeyModifiers::CONTROL) | (KeyCode::Esc, _) => {
-                        status = Status::Cancelled;
-                        cancel_recording(&mut recording.child, output_path);
-                        let _ = terminal.draw(|frame| {
-                            let area = frame.area();
-                            frame.render_widget(
-                                view(&status, elapsed, filename, &vec![], width),
-                                area,
-                            );
-                        });
-                        break;
-                    }
-                    _ => {}
+                    let _ = terminal.draw(|frame| {
+                        let area = frame.area();
+                        frame.render_widget(view(&status, elapsed, filename, &[], width), area);
+                    });
+                    break 'outer match status {
+                        Status::Done => Ok(Some(output_path.to_string())),
+                        Status::Error(e) => Err(e),
+                        _ => Ok(None),
+                    };
                 }
+                (KeyCode::Char(' '), _) => {
+                    if can_pause && status == Status::Recording {
+                        let _ = pause_recording(&mut recording.child);
+                        status = Status::Paused;
+                    } else if can_pause && status == Status::Paused {
+                        let _ = resume_recording(&mut recording.child);
+                        status = Status::Recording;
+                        start = Instant::now() - elapsed;
+                    }
+                }
+                (KeyCode::Char('c'), KeyModifiers::CONTROL) | (KeyCode::Esc, _) => {
+                    status = Status::Cancelled;
+                    cancel_recording(&mut recording.child, output_path);
+                    let _ = terminal.draw(|frame| {
+                        let area = frame.area();
+                        frame.render_widget(view(&status, elapsed, filename, &[], width), area);
+                    });
+                    break 'outer Ok(None);
+                }
+                _ => {}
             }
         }
 
@@ -195,16 +188,10 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
             let area = frame.area();
             frame.render_widget(view(&status, elapsed, filename, &bands, width), area);
         });
-    }
+    };
 
     disable_raw_mode().ok();
     crossterm::execute!(std::io::stdout(), LeaveAlternateScreen).ok();
-
-    match status {
-        Status::Done => result = Ok(Some(output_path.to_string())),
-        Status::Error(e) => result = Err(e),
-        _ => result = Ok(None),
-    }
 
     result
 }
@@ -259,12 +246,8 @@ fn view(
     };
 
     let num_bands = num_bands_for_width(width);
-    let display_bands = if bands.len() == num_bands {
-        bands
-    } else {
-        bands
-    };
-    let eq = render_eq(display_bands);
+    let _ = num_bands;
+    let eq = render_eq(bands);
 
     let header = Line::from(vec![
         Span::styled(

@@ -184,12 +184,11 @@ pub fn next_attempt_number(dir: &Path, force: bool) -> usize {
     };
     let mut max_n = 0;
     for entry in entries.flatten() {
-        if let Some(caps) = re.captures(&entry.file_name().to_string_lossy()) {
-            if let Ok(n) = caps[1].parse::<usize>() {
-                if n > max_n {
-                    max_n = n;
-                }
-            }
+        if let Some(caps) = re.captures(&entry.file_name().to_string_lossy())
+            && let Ok(n) = caps[1].parse::<usize>()
+            && n > max_n
+        {
+            max_n = n;
         }
     }
     max_n + 1

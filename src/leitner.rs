@@ -6,7 +6,7 @@ const BOX_INTERVALS: [i64; 5] = [1, 3, 7, 14, 30];
 /// - Rating 4-5: move up one box (max 5)
 /// - Rating 3: stay
 /// - Rating 1-2: drop to box 1
-/// First-time problems always start at box 1 regardless of rating.
+///   First-time problems always start at box 1 regardless of rating.
 pub fn next_box(current_box: u8, rating: u8, is_first_attempt: bool) -> u8 {
     if is_first_attempt {
         return 1;
@@ -32,7 +32,11 @@ pub fn next_streak(current_streak: u8, rating: u8) -> u8 {
 /// If streak reaches 3, the box jumps to 5 (mastery).
 /// Returns the final box after applying mastery bonus.
 pub fn apply_mastery(new_box: u8, new_streak: u8) -> u8 {
-    if new_streak >= 3 { 5 } else { new_box }
+    if new_streak >= 3 {
+        5
+    } else {
+        new_box
+    }
 }
 
 /// Get the review interval in days for a given box (1-5).
