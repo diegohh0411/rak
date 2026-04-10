@@ -11,7 +11,7 @@ pub fn run(count: usize) -> Result<(), String> {
     let history = history::load(path)?;
 
     if history.problems.is_empty() {
-        eprintln!("No problems logged yet. Use 'rak l log <id> <rating>' to start tracking.");
+        eprintln!("No problems logged yet. Use 'rak log <id> <rating>' to start tracking.");
         return Ok(());
     }
 
@@ -42,7 +42,11 @@ pub fn run(count: usize) -> Result<(), String> {
         println!(
             " {:<5} {:<30} {}/5  {:<12} {:<8} {:<8} {}/3",
             item.id,
-            if display.len() > 30 { &display[..30] } else { &display },
+            if display.len() > 30 {
+                &display[..30]
+            } else {
+                &display
+            },
             item.box_num,
             item.last_review.format("%Y-%m-%d"),
             format_stars(item.last_rating),
@@ -125,7 +129,10 @@ mod tests {
             box_num,
             streak_perfect: 0,
             last_review,
-            attempts: vec![Attempt { date: last_review, rating }],
+            attempts: vec![Attempt {
+                date: last_review,
+                rating,
+            }],
         }
     }
 
@@ -135,16 +142,21 @@ mod tests {
         let mut history = History::new();
 
         // Box 1, reviewed yesterday → due today (due=Apr6+1=Apr7)
-        history.problems.insert("100".into(),
-            make_problem(1, NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(), 2));
+        history.problems.insert(
+            "100".into(),
+            make_problem(1, NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(), 2),
+        );
 
         // Box 1, reviewed today → due tomorrow, NOT due yet
-        history.problems.insert("200".into(),
-            make_problem(1, today, 3));
+        history
+            .problems
+            .insert("200".into(), make_problem(1, today, 3));
 
         // Box 2, reviewed Apr 3 → due Apr 6 (overdue 1 day)
-        history.problems.insert("300".into(),
-            make_problem(2, NaiveDate::from_ymd_opt(2026, 4, 3).unwrap(), 4));
+        history.problems.insert(
+            "300".into(),
+            make_problem(2, NaiveDate::from_ymd_opt(2026, 4, 3).unwrap(), 4),
+        );
 
         let due = collect_due(&history, today, 10);
         assert_eq!(due.len(), 2);
@@ -156,7 +168,9 @@ mod tests {
     fn reviewed_today_box1_not_due() {
         let today = NaiveDate::from_ymd_opt(2026, 4, 7).unwrap();
         let mut history = History::new();
-        history.problems.insert("238".into(), make_problem(1, today, 1));
+        history
+            .problems
+            .insert("238".into(), make_problem(1, today, 1));
 
         let due = collect_due(&history, today, 10);
         assert_eq!(due.len(), 0); // NOT due today — leetgo bug fix
@@ -182,10 +196,14 @@ mod tests {
         let mut history = History::new();
 
         // Box 1, reviewed today → due tomorrow (1 day away)
-        history.problems.insert("100".into(), make_problem(1, today, 3));
+        history
+            .problems
+            .insert("100".into(), make_problem(1, today, 3));
 
         // Box 3, reviewed today → due in 7 days
-        history.problems.insert("200".into(), make_problem(3, today, 3));
+        history
+            .problems
+            .insert("200".into(), make_problem(3, today, 3));
 
         let (id, days) = next_upcoming(&history, today).unwrap();
         assert_eq!(id, "100");
