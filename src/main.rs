@@ -4,9 +4,10 @@ mod recorder;
 mod history;
 mod leitner;
 mod stt;
+mod analyzer;
 
 use clap::{Parser, Subcommand};
-use commands::{init, log, next, record, scrape, transcribe};
+use commands::{analyze, init, log, next, record, scrape, transcribe};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
@@ -60,12 +61,24 @@ enum Command {
         #[arg(long, short)]
         force: bool,
     },
+    /// Analyze problem solution using AI
+    Analyze {
+        /// LeetCode problem ID
+        id: String,
+        /// Override default analysis provider
+        #[arg(long, short)]
+        provider: Option<String>,
+        /// Overwrite existing analysis.md
+        #[arg(long, short)]
+        force: bool,
+    },
 }
 
 #[tokio::main]
 async fn main() {
     let _ = dotenvy::dotenv();
     stt::init_providers();
+    analyzer::init_providers();
 
     let cli = Cli::parse();
 
@@ -76,6 +89,11 @@ async fn main() {
         Command::Scrape { url, output } => scrape::run(url, output).await,
         Command::Record { id, force } => record::run(id, force),
         Command::Transcribe { id, provider, force } => transcribe::run(id, provider, force),
+        Command::Analyze {
+            id,
+            provider,
+            force,
+        } => analyze::run(id, provider, force),
     };
 
     if let Err(e) = result {

@@ -1,3 +1,4 @@
+pub mod analyze;
 pub mod init;
 pub mod log;
 pub mod next;

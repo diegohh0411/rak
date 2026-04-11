@@ -8,24 +8,71 @@ pub struct RakConfig {
     pub leetcode_dir: String,
     #[serde(default)]
     pub transcribe: TranscribeConfig,
+    #[serde(default)]
+    pub analyze: AnalyzeConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TranscribeConfig {
-    #[serde(default = "default_provider")]
+    #[serde(default = "default_transcribe_provider")]
     pub default_provider: String,
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
 }
 
-fn default_provider() -> String {
+fn default_transcribe_provider() -> String {
     "elevenlabs".to_string()
 }
 
 impl Default for TranscribeConfig {
     fn default() -> Self {
         Self {
-            default_provider: default_provider(),
+            default_provider: default_transcribe_provider(),
+            providers: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnalyzeConfig {
+    #[serde(default = "default_analyze_provider")]
+    pub default_provider: String,
+    #[serde(default = "default_system_prompt")]
+    pub system_prompt: String,
+    #[serde(default)]
+    pub providers: HashMap<String, ProviderConfig>,
+}
+
+fn default_analyze_provider() -> String {
+    "claude".to_string()
+}
+
+fn default_system_prompt() -> String {
+    r#"Analyze this Leetcode problem solution based on my voice notes. Keep it brief - 2-3 paragraphs max.
+
+PROBLEM:
+{question}
+
+MY SOLUTION (latest attempt):
+{solution}
+
+MY VOICE NOTES:
+{transcripts}
+
+Provide:
+1. Brief overview of how the problem went
+2. What I did well
+3. What I struggled with / areas to improve
+4. Improvement guide: if the solution was unsolved, suboptimal, or inefficient, provide a concrete guide on how to solve or optimize it. Include the key algorithm/data structure to use, time/space complexity, and a brief pseudocode outline of the improved approach. If the solution is already optimal, skip this section.
+
+Focus on identifying strengths, weaknesses, and actionable feedback for future practice."#.to_string()
+}
+
+impl Default for AnalyzeConfig {
+    fn default() -> Self {
+        Self {
+            default_provider: default_analyze_provider(),
+            system_prompt: default_system_prompt(),
             providers: HashMap::new(),
         }
     }

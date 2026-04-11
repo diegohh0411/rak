@@ -41,6 +41,12 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
                     let md_path = problem_dir.join(&md_name);
                     std::fs::write(&md_path, &text).map_err(|e| e.to_string())?;
                     eprintln!("✓ Transcribed → {md_name}");
+
+                    if prompt_yes_no("Analyze?", true) {
+                        if let Err(e) = crate::commands::analyze::run(id, None, true) {
+                            eprintln!("Analysis error: {e}");
+                        }
+                    }
                 }
                 Ok(_) => eprintln!("Warning: transcript is empty, skipping"),
                 Err(e) => eprintln!("Transcription error: {e}"),
