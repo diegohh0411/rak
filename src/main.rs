@@ -7,7 +7,7 @@ mod stt;
 mod analyzer;
 
 use clap::{Parser, Subcommand};
-use commands::{analyze, init, log, next, record, scrape, transcribe};
+use commands::{add, analyze, init, log, next, record, scrape, transcribe};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
@@ -18,6 +18,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Add a custom interview problem folder
+    Add {
+        /// Problem slug (e.g. c3ai-strings-and-targets)
+        slug: String,
+    },
     /// Bootstrap rak.toml, .env and .gitignore in the current directory
     Init,
     /// Record a problem attempt with a rating
@@ -83,6 +88,7 @@ async fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
+        Command::Add { slug } => add::run(slug),
         Command::Init => init::run(),
         Command::Log { id, rating, force } => log::run(id, rating, force),
         Command::Next { count } => next::run(count),
