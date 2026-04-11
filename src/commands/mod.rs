@@ -1,3 +1,4 @@
+pub mod add;
 pub mod analyze;
 pub mod init;
 pub mod log;
