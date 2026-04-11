@@ -7,7 +7,8 @@ use crate::config;
 pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
-    let problem_dir = config::resolve_problem_folder(&config_dir, &cfg, &id)?;
+    let problem_id = config::ProblemId::parse(&id);
+    let problem_dir = config::resolve_problem_folder(&config_dir, &cfg, &problem_id)?;
 
     let analysis_path = problem_dir.join("analysis.md");
     if analysis_path.exists() && !force {
