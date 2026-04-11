@@ -80,6 +80,7 @@ impl Default for AnalyzeConfig {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ProviderConfig {
+    #[serde(default)]
     pub api_key: String,
     pub model: Option<String>,
 }
