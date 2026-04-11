@@ -1,5 +1,6 @@
 use std::io::{self, BufRead, Write};
 
+use crate::commands::add;
 use crate::config;
 use crate::recorder::{self, tui};
 
@@ -7,6 +8,16 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
     let problem_id = config::ProblemId::parse(&id);
+
+    // Auto-scaffold missing custom problem folders silently
+    if let config::ProblemId::Custom(ref slug) = problem_id {
+        let leetcode_dir = config_dir.join(&cfg.leetcode_dir);
+        let candidate = leetcode_dir.join(slug);
+        if !candidate.is_dir() {
+            add::scaffold(&candidate)?;
+        }
+    }
+
     let problem_dir = config::resolve_problem_folder(&config_dir, &cfg, &problem_id)?;
 
     recorder::check_ffmpeg()?;
