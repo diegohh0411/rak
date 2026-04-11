@@ -85,6 +85,21 @@ pub struct ProviderConfig {
     pub model: Option<String>,
 }
 
+#[derive(Debug)]
+pub enum ProblemId {
+    Leetcode(u32),
+    Custom(String),
+}
+
+impl ProblemId {
+    pub fn parse(s: &str) -> Self {
+        match s.parse::<u32>() {
+            Ok(n) => ProblemId::Leetcode(n),
+            Err(_) => ProblemId::Custom(s.to_owned()),
+        }
+    }
+}
+
 pub fn find_rak_toml(start: &Path) -> Result<PathBuf, String> {
     let mut dir = start.to_path_buf();
     loop {
@@ -121,36 +136,53 @@ pub fn resolve_api_key(config_key: &str, env_var: &str) -> Result<String, String
 pub fn resolve_problem_folder(
     config_dir: &Path,
     config: &RakConfig,
-    id: &str,
+    id: &ProblemId,
 ) -> Result<PathBuf, String> {
-    let padded = format!("{:0>4}", id);
     let leetcode_dir = config_dir.join(&config.leetcode_dir);
-    let entries = std::fs::read_dir(&leetcode_dir).map_err(|e| {
-        format!(
-            "Failed to read leetcode_dir '{}': {}",
-            config.leetcode_dir, e
-        )
-    })?;
 
-    let re =
-        regex::Regex::new(&format!("^{}\\.", regex::escape(&padded))).map_err(|e| e.to_string())?;
+    match id {
+        ProblemId::Leetcode(n) => {
+            let padded = format!("{:0>4}", n);
+            let entries = std::fs::read_dir(&leetcode_dir).map_err(|e| {
+                format!(
+                    "Failed to read leetcode_dir '{}': {}",
+                    config.leetcode_dir, e
+                )
+            })?;
 
-    let matches: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_str().is_some_and(|name| re.is_match(name)))
-        .map(|e| e.path())
-        .collect();
+            let re = regex::Regex::new(&format!("^{}\\.", regex::escape(&padded)))
+                .map_err(|e| e.to_string())?;
 
-    match matches.len() {
-        0 => Err(format!(
-            "No problem folder matching '{}' found in {}",
-            padded, config.leetcode_dir
-        )),
-        1 => Ok(matches.into_iter().next().unwrap()),
-        _ => Err(format!(
-            "Multiple problem folders matching '{}' found in {}: {:?}",
-            padded, config.leetcode_dir, matches
-        )),
+            let matches: Vec<PathBuf> = entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_name().to_str().is_some_and(|name| re.is_match(name)))
+                .map(|e| e.path())
+                .collect();
+
+            match matches.len() {
+                0 => Err(format!(
+                    "No problem folder matching '{}' found in {}",
+                    padded, config.leetcode_dir
+                )),
+                1 => Ok(matches.into_iter().next().unwrap()),
+                _ => Err(format!(
+                    "Multiple problem folders matching '{}' found in {}: {:?}",
+                    padded, config.leetcode_dir, matches
+                )),
+            }
+        }
+
+        ProblemId::Custom(slug) => {
+            let candidate = leetcode_dir.join(slug);
+            if candidate.is_dir() {
+                Ok(candidate)
+            } else {
+                Err(format!(
+                    "No folder matching '{}' found in {}",
+                    slug, config.leetcode_dir
+                ))
+            }
+        }
     }
 }
 
@@ -244,7 +276,7 @@ api_key = "elv-test"
             leetcode_dir: "leetcode".to_string(),
             ..Default::default()
         };
-        let result = resolve_problem_folder(tmp.path(), &config, "1").unwrap();
+        let result = resolve_problem_folder(tmp.path(), &config, &ProblemId::Leetcode(1)).unwrap();
         assert!(result.ends_with("0001.two-sum"));
     }
 
@@ -258,7 +290,7 @@ api_key = "elv-test"
             leetcode_dir: "leetcode".to_string(),
             ..Default::default()
         };
-        let err = resolve_problem_folder(tmp.path(), &config, "9999").unwrap_err();
+        let err = resolve_problem_folder(tmp.path(), &config, &ProblemId::Leetcode(9999)).unwrap_err();
         assert!(err.contains("9999"), "error should mention id: {err}");
     }
 
@@ -273,10 +305,77 @@ api_key = "elv-test"
             leetcode_dir: "leetcode".to_string(),
             ..Default::default()
         };
-        let err = resolve_problem_folder(tmp.path(), &config, "1").unwrap_err();
+        let err = resolve_problem_folder(tmp.path(), &config, &ProblemId::Leetcode(1)).unwrap_err();
         assert!(
             err.contains("Multiple"),
             "error should mention multiple: {err}"
         );
+    }
+
+    #[test]
+    fn resolve_problem_folder_custom_exact_match() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lc = tmp.path().join("leetcode");
+        fs::create_dir_all(lc.join("c3ai-strings")).unwrap();
+        fs::write(
+            tmp.path().join("rak.toml"),
+            "leetcode_dir = \"leetcode\"",
+        )
+        .unwrap();
+
+        let config = RakConfig {
+            leetcode_dir: "leetcode".to_string(),
+            ..Default::default()
+        };
+        let id = ProblemId::Custom("c3ai-strings".to_string());
+        let result = resolve_problem_folder(tmp.path(), &config, &id).unwrap();
+        assert!(result.ends_with("c3ai-strings"));
+    }
+
+    #[test]
+    fn resolve_problem_folder_custom_no_match_errors() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lc = tmp.path().join("leetcode");
+        fs::create_dir_all(&lc).unwrap();
+
+        let config = RakConfig {
+            leetcode_dir: "leetcode".to_string(),
+            ..Default::default()
+        };
+        let id = ProblemId::Custom("missing-slug".to_string());
+        let err = resolve_problem_folder(tmp.path(), &config, &id).unwrap_err();
+        assert!(err.contains("missing-slug"), "error should mention slug: {err}");
+    }
+
+    #[test]
+    fn resolve_problem_folder_custom_no_partial_match() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lc = tmp.path().join("leetcode");
+        fs::create_dir_all(lc.join("c3ai-strings-and-targets")).unwrap();
+
+        let config = RakConfig {
+            leetcode_dir: "leetcode".to_string(),
+            ..Default::default()
+        };
+        // "c3ai" is NOT a match for "c3ai-strings-and-targets"
+        let id = ProblemId::Custom("c3ai".to_string());
+        let err = resolve_problem_folder(tmp.path(), &config, &id).unwrap_err();
+        assert!(err.contains("c3ai"), "error should mention slug: {err}");
+    }
+
+    #[test]
+    fn problem_id_parse_numeric() {
+        match ProblemId::parse("200") {
+            ProblemId::Leetcode(n) => assert_eq!(n, 200),
+            ProblemId::Custom(_) => panic!("expected Leetcode variant"),
+        }
+    }
+
+    #[test]
+    fn problem_id_parse_slug() {
+        match ProblemId::parse("c3ai-strings") {
+            ProblemId::Custom(s) => assert_eq!(s, "c3ai-strings"),
+            ProblemId::Leetcode(_) => panic!("expected Custom variant"),
+        }
     }
 }
