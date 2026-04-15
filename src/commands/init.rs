@@ -1,6 +1,10 @@
 use std::fs;
 
-const ENV_KEYS: &[(&str, &str)] = &[("ELEVENLABS_API_KEY", ""), ("OPENROUTER_API_KEY", "")];
+const ENV_KEYS: &[(&str, &str)] = &[
+    ("ELEVENLABS_API_KEY", ""),
+    ("OPENROUTER_API_KEY", ""),
+    ("LEETCODE_SESSION", ""),
+];
 
 const RAK_TOML_TEMPLATE: &str = r#"leetcode_dir = "./cpp"
 
@@ -42,6 +46,9 @@ model = "sonnet"
 
 [analyze.providers.gemini]
 model = "gemini-2.5-flash"
+
+[leetcode]
+# session = ""   # or set LEETCODE_SESSION env var
 "#;
 
 pub fn run() -> Result<(), String> {
@@ -107,19 +114,26 @@ fn init_env() -> Result<(), String> {
 
 fn init_gitignore() -> Result<(), String> {
     let path = ".gitignore";
-    let entry = ".env";
+    let entries = [".env", ".rak-cache/"];
 
     if !fs::exists(path).map_err(|e| e.to_string())? {
-        fs::write(path, format!("{entry}\n")).map_err(|e| e.to_string())?;
+        let content = entries.iter().map(|e| format!("{e}\n")).collect::<String>();
+        fs::write(path, content).map_err(|e| e.to_string())?;
         eprintln!("Created .gitignore");
         return Ok(());
     }
 
     let existing = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let already_present = existing.lines().any(|line| line.trim() == entry);
+    let mut additions: Vec<&str> = Vec::new();
 
-    if already_present {
-        eprintln!(".gitignore already contains .env");
+    for entry in &entries {
+        if !existing.lines().any(|line| line.trim() == *entry) {
+            additions.push(entry);
+        }
+    }
+
+    if additions.is_empty() {
+        eprintln!(".gitignore already has all required entries");
         return Ok(());
     }
 
@@ -127,9 +141,11 @@ fn init_gitignore() -> Result<(), String> {
     if !content.ends_with('\n') {
         content.push('\n');
     }
-    content.push_str(&format!("{entry}\n"));
+    for entry in &additions {
+        content.push_str(&format!("{entry}\n"));
+        eprintln!("Added {entry} to .gitignore");
+    }
     fs::write(path, content).map_err(|e| e.to_string())?;
-    eprintln!("Added .env to .gitignore");
 
     Ok(())
 }

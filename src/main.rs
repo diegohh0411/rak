@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod leetcode;
 mod recorder;
 mod history;
 mod leitner;
@@ -7,7 +8,7 @@ mod stt;
 mod analyzer;
 
 use clap::{Parser, Subcommand};
-use commands::{add, analyze, init, log, next, record, scrape, transcribe};
+use commands::{add, analyze, init, log, next, pull, record, scrape, transcribe};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
@@ -83,6 +84,14 @@ enum Command {
         #[arg(long, short)]
         force: bool,
     },
+    /// Fetch a LeetCode problem and scaffold it locally
+    Pull {
+        /// Problem ID (numeric), slug, or "today". Omit for interactive TUI.
+        qid: Option<String>,
+        /// Force-refresh the problem list cache
+        #[arg(long, short)]
+        refresh: bool,
+    },
 }
 
 #[tokio::main]
@@ -106,6 +115,7 @@ async fn main() {
             provider,
             force,
         } => analyze::run(id, provider, force),
+        Command::Pull { qid, refresh } => pull::run(qid, refresh),
     };
 
     if let Err(e) = result {

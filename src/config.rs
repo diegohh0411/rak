@@ -10,6 +10,8 @@ pub struct RakConfig {
     pub transcribe: TranscribeConfig,
     #[serde(default)]
     pub analyze: AnalyzeConfig,
+    #[serde(default)]
+    pub leetcode: LeetcodeConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -83,6 +85,19 @@ pub struct ProviderConfig {
     #[serde(default)]
     pub api_key: String,
     pub model: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct LeetcodeConfig {
+    #[serde(default)]
+    pub session: String,
+}
+
+pub fn resolve_lc_session(cfg: &LeetcodeConfig) -> Option<String> {
+    if !cfg.session.is_empty() {
+        return Some(cfg.session.clone());
+    }
+    std::env::var("LEETCODE_SESSION").ok()
 }
 
 #[derive(Debug)]
