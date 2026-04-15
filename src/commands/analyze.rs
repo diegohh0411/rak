@@ -55,7 +55,11 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
 
     let leetcode_dir = config_dir.join(&cfg.leetcode_dir);
     let history_path = config_dir.join("history.yaml");
-    rebuild_master(&leetcode_dir, &history_path)?;
+    let rak_toml_dir = config::find_rak_toml(&config_dir)
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| config_dir.clone());
+    rebuild_master(&leetcode_dir, &history_path, &rak_toml_dir)?;
 
     Ok(())
 }
@@ -90,7 +94,7 @@ struct ProblemEntry {
     analysis: String,
 }
 
-fn rebuild_master(leetcode_dir: &Path, history_path: &Path) -> Result<(), String> {
+fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -> Result<(), String> {
     let hist = history::load(history_path)?;
 
     let mut entries: Vec<ProblemEntry> = Vec::new();
@@ -153,7 +157,7 @@ fn rebuild_master(leetcode_dir: &Path, history_path: &Path) -> Result<(), String
 
     let content = parts.join("\n\n---\n\n") + "\n";
 
-    let master_path = leetcode_dir.join("analyses-master.md");
+    let master_path = master_dir.join("analyses-master.md");
     fs::write(&master_path, content)
         .map_err(|e| format!("failed to write analyses-master.md: {e}"))?;
     println!("✓ Updated {}", master_path.display());
@@ -309,9 +313,9 @@ mod tests {
         fs::write(p2.join("analysis.md"), "Analysis of trapping rain water.").unwrap();
 
         let history_path = tmp.path().join("history.yaml");
-        rebuild_master(&lc, &history_path).unwrap();
+        rebuild_master(&lc, &history_path, tmp.path()).unwrap();
 
-        let master = fs::read_to_string(lc.join("analyses-master.md")).unwrap();
+        let master = fs::read_to_string(tmp.path().join("analyses-master.md")).unwrap();
         assert!(master.contains("# Leetcode Skill Report"));
         assert!(master.contains("Leitner"));
         assert!(master.contains("0042.trapping-rain-water"));
@@ -335,9 +339,9 @@ mod tests {
         // p2 has no analysis.md
 
         let history_path = tmp.path().join("history.yaml");
-        rebuild_master(&lc, &history_path).unwrap();
+        rebuild_master(&lc, &history_path, tmp.path()).unwrap();
 
-        let master = fs::read_to_string(lc.join("analyses-master.md")).unwrap();
+        let master = fs::read_to_string(tmp.path().join("analyses-master.md")).unwrap();
         assert!(master.contains("0001.two-sum"));
         assert!(!master.contains("0002.add-two-numbers"));
     }
