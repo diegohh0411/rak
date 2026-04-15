@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use crate::analyzer::{self, AnalysisContext};
 use crate::config;
 use crate::history;
+use crate::leetcode::cache;
 
 pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
@@ -95,7 +96,9 @@ struct ProblemEntry {
 }
 
 fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -> Result<(), String> {
-    let hist = history::load(history_path)?;
+    let mut hist = history::load(history_path)?;
+    let mut history_dirty = false;
+    let cache = cache::load(master_dir);
 
     let mut entries: Vec<ProblemEntry> = Vec::new();
 
@@ -123,6 +126,36 @@ fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -
         };
 
         let key = folder_to_history_key(&folder_name);
+
+        if let Some(problem) = hist.problems.get_mut(&key) {
+            if problem.title.is_none() || problem.difficulty.is_none() {
+                if let Some(ref cache) = cache {
+                    if let Ok(n) = key.parse::<u32>() {
+                        if let Some(p) = cache
+                            .problems
+                            .iter()
+                            .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == n)
+                        {
+                            if problem.title.is_none() {
+                                problem.title = Some(p.title.clone());
+                                history_dirty = true;
+                            }
+                            if problem.difficulty.is_none() {
+                                problem.difficulty = Some(p.difficulty.clone());
+                                history_dirty = true;
+                            }
+                        }
+                    } else {
+                        // Custom problem (slug match)
+                        if problem.title.is_none() {
+                            problem.title = Some(key.clone());
+                            history_dirty = true;
+                        }
+                    }
+                }
+            }
+        }
+
         let hist_entry = hist.problems.get(&key);
 
         let title = hist_entry
@@ -136,7 +169,17 @@ fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -
             .map(|p| p.last_review)
             .unwrap_or_else(|| mtime_as_date(&analysis_path));
 
-        entries.push(ProblemEntry { title, box_num, last_date, analysis });
+        entries.push(ProblemEntry {
+            title,
+            box_num,
+            last_date,
+            analysis,
+        });
+    }
+
+    if history_dirty {
+        history::save(history_path, &hist)?;
+        println!("✓ Updated metadata in {}", history_path.display());
     }
 
     // Most recent first
@@ -164,6 +207,7 @@ fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -
 
     Ok(())
 }
+
 
 fn folder_to_history_key(folder_name: &str) -> String {
     // "0001.two-sum" → "1"  (matches the key used by `rak log`)

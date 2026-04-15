@@ -38,9 +38,12 @@ enum Command {
         ///   1 — Couldn't solve it without AI/Web giving me the answer
         #[arg(verbatim_doc_comment)]
         rating: u8,
-        /// Replace today's attempt if one already exists
+        /// Replace the attempt if one already exists for the given date
         #[arg(long)]
         force: bool,
+        /// Date of the attempt (YYYY-MM-DD). Defaults to today.
+        #[arg(short, long)]
+        date: Option<String>,
     },
     /// Show problems due for review
     Next {
@@ -110,7 +113,7 @@ async fn main() {
     let result = match cli.command {
         Command::Add { slug } => add::run(slug),
         Command::Init => init::run(),
-        Command::Log { id, rating, force } => log::run(id, rating, force),
+        Command::Log { id, rating, force, date } => log::run(id, rating, force, date),
         Command::Next { count } => next::run(count),
         Command::Scrape { url, output } => scrape::run(url, output).await,
         Command::Record { id, force } => record::run(id, force),

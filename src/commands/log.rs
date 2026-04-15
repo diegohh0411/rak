@@ -2,24 +2,65 @@ use std::path::Path;
 
 use chrono::{Local, NaiveDate};
 
+use crate::config;
 use crate::history::{self, Attempt, Problem};
+use crate::leetcode::cache;
 use crate::leitner;
 
 const DEFAULT_HISTORY: &str = "history.yaml";
 
-pub fn run(id: String, rating: u8, force: bool) -> Result<(), String> {
+pub fn run(id: String, rating: u8, force: bool, date: Option<String>) -> Result<(), String> {
+    let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
+    let cfg = config::load(&config_dir).ok();
+
+    let target_date = match date {
+        Some(d) => NaiveDate::parse_from_str(&d, "%Y-%m-%d")
+            .map_err(|e| format!("invalid date format '{}': {}", d, e))?,
+        None => Local::now().date_naive(),
+    };
+
+    let problem_id = config::ProblemId::parse(&id);
+    let mut title = None;
+    let mut difficulty = None;
+
+    if cfg.is_some() {
+        if let Some(rak_toml_path) = config::find_rak_toml(&config_dir).ok() {
+            if let Some(rak_toml_dir) = rak_toml_path.parent() {
+                if let Some(cached) = cache::load(rak_toml_dir) {
+                    match &problem_id {
+                        config::ProblemId::Leetcode(n) => {
+                            if let Some(p) = cached
+                                .problems
+                                .into_iter()
+                                .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == *n)
+                            {
+                                title = Some(p.title);
+                                difficulty = Some(p.difficulty);
+                            }
+                        }
+                        config::ProblemId::Custom(_) => {
+                            // For custom problems, we don't have a cache lookup yet
+                            // Use the id as title if it's not numeric
+                            title = Some(id.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let path = Path::new(DEFAULT_HISTORY);
-    let today = Local::now().date_naive();
-    let (old_box, new_box, new_streak) = log_to_file(path, &id, rating, force, today)?;
+    let (old_box, new_box, new_streak) =
+        log_to_file(path, &id, rating, force, target_date, title, difficulty)?;
     if force {
         eprintln!(
-            "Replaced {} → rating {}, box {}→{}, streak {}/3",
-            id, rating, old_box, new_box, new_streak
+            "Replaced {} on {} → rating {}, box {}→{}, streak {}/3",
+            id, target_date, rating, old_box, new_box, new_streak
         );
     } else {
         eprintln!(
-            "Logged {} → rating {}, box {}→{}, streak {}/3",
-            id, rating, old_box, new_box, new_streak
+            "Logged {} on {} → rating {}, box {}→{}, streak {}/3",
+            id, target_date, rating, old_box, new_box, new_streak
         );
     }
     Ok(())
@@ -44,7 +85,9 @@ fn log_to_file(
     id: &str,
     rating: u8,
     force: bool,
-    today: NaiveDate,
+    target_date: NaiveDate,
+    title: Option<String>,
+    difficulty: Option<String>,
 ) -> Result<(u8, u8, u8), String> {
     if !(1..=5).contains(&rating) {
         return Err("rating must be between 1 and 5".to_string());
@@ -53,57 +96,74 @@ fn log_to_file(
     let mut history = history::load(path)?;
 
     let (old_box, new_box, new_streak) = if let Some(problem) = history.problems.get_mut(id) {
-        if problem.last_review == today {
+        // Update title/difficulty if they are missing but provided now
+        if problem.title.is_none() && title.is_some() {
+            problem.title = title;
+        }
+        if problem.difficulty.is_none() && difficulty.is_some() {
+            problem.difficulty = difficulty;
+        }
+
+        let existing_attempt_index = problem.attempts.iter().position(|a| a.date == target_date);
+
+        if let Some(idx) = existing_attempt_index {
             if !force {
                 return Err(format!(
-                    "already logged {} today — use --force to replace",
-                    id
+                    "already logged {} on {} — use --force to replace",
+                    id, target_date
                 ));
             }
-            // --force: replace today's attempt and replay from scratch
-            let last = problem.attempts.last_mut()
-                .expect("last_review == today implies at least one attempt");
-            last.rating = rating;
+            // --force: replace attempt for this specific date and replay from scratch
+            problem.attempts[idx].rating = rating;
 
-            // old_box = state after all attempts except today's
-            let (old_box, _) = if problem.attempts.len() > 1 {
-                replay_attempts(&problem.attempts[..problem.attempts.len() - 1])
-            } else {
-                (0, 0)
-            };
+            // Re-sort attempts just in case
+            problem.attempts.sort_by_key(|a| a.date);
 
             let (new_box, new_streak) = replay_attempts(&problem.attempts);
             problem.box_num = new_box;
             problem.streak_perfect = new_streak;
+            problem.last_review = problem.attempts.last().unwrap().date;
+
+            // Compute old_box for display (it's less meaningful for past dates but let's just return what was there)
+            (0, new_box, new_streak)
+        } else {
+            // New date, append attempt and sort
+            let old_box = problem.box_num;
+
+            problem.attempts.push(Attempt {
+                date: target_date,
+                rating,
+            });
+            problem.attempts.sort_by_key(|a| a.date);
+
+            // Re-derive state after sorting
+            let (new_box, new_streak) = replay_attempts(&problem.attempts);
+
+            problem.box_num = new_box;
+            problem.streak_perfect = new_streak;
+            problem.last_review = problem.attempts.last().unwrap().date;
 
             (old_box, new_box, new_streak)
-        } else {
-            // Normal: new day, append attempt
-            let old_box = problem.box_num;
-            let new_box = leitner::next_box(old_box, rating, false);
-            let new_streak = leitner::next_streak(problem.streak_perfect, rating);
-            let final_box = leitner::apply_mastery(new_box, new_streak);
-
-            problem.box_num = final_box;
-            problem.streak_perfect = new_streak;
-            problem.last_review = today;
-            problem.attempts.push(Attempt { date: today, rating });
-
-            (old_box, final_box, new_streak)
         }
     } else {
         // New problem
         let new_streak = leitner::next_streak(0, rating);
         let new_box = leitner::apply_mastery(1, new_streak);
 
-        history.problems.insert(id.to_string(), Problem {
-            title: None,
-            difficulty: None,
-            box_num: new_box,
-            streak_perfect: new_streak,
-            last_review: today,
-            attempts: vec![Attempt { date: today, rating }],
-        });
+        history.problems.insert(
+            id.to_string(),
+            Problem {
+                title,
+                difficulty,
+                box_num: new_box,
+                streak_perfect: new_streak,
+                last_review: target_date,
+                attempts: vec![Attempt {
+                    date: target_date,
+                    rating,
+                }],
+            },
+        );
 
         (0, new_box, new_streak)
     };
@@ -125,7 +185,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.yaml");
 
-        log_to_file(&path, "532", 4, false, APR1()).unwrap();
+        log_to_file(&path, "532", 4, false, APR1(), None, None).unwrap();
 
         let h = history::load(&path).unwrap();
         let p = &h.problems["532"];
@@ -140,8 +200,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.yaml");
 
-        log_to_file(&path, "532", 5, false, APR1()).unwrap(); // first attempt, box stays 1
-        log_to_file(&path, "532", 5, false, APR2()).unwrap(); // second attempt, box 1→2
+        log_to_file(&path, "532", 5, false, APR1(), None, None).unwrap(); // first attempt, box stays 1
+        log_to_file(&path, "532", 5, false, APR2(), None, None).unwrap(); // second attempt, box 1→2
 
         let h = history::load(&path).unwrap();
         let p = &h.problems["532"];
@@ -154,7 +214,7 @@ mod tests {
     fn log_invalid_rating() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.yaml");
-        let err = log_to_file(&path, "532", 6, false, APR1()).unwrap_err();
+        let err = log_to_file(&path, "532", 6, false, APR1(), None, None).unwrap_err();
         assert!(err.contains("between 1 and 5"));
     }
 
@@ -163,9 +223,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.yaml");
 
-        log_to_file(&path, "1", 5, false, APR1()).unwrap(); // box 1, streak 1
-        log_to_file(&path, "1", 5, false, APR2()).unwrap(); // box 2, streak 2
-        log_to_file(&path, "1", 5, false, APR3()).unwrap(); // mastery → box 5
+        log_to_file(&path, "1", 5, false, APR1(), None, None).unwrap(); // box 1, streak 1
+        log_to_file(&path, "1", 5, false, APR2(), None, None).unwrap(); // box 2, streak 2
+        log_to_file(&path, "1", 5, false, APR3(), None, None).unwrap(); // mastery → box 5
 
         let h = history::load(&path).unwrap();
         let p = &h.problems["1"];
@@ -178,8 +238,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.yaml");
 
-        log_to_file(&path, "238", 3, false, APR1()).unwrap();
-        let err = log_to_file(&path, "238", 5, false, APR1()).unwrap_err();
+        log_to_file(&path, "238", 3, false, APR1(), None, None).unwrap();
+        let err = log_to_file(&path, "238", 5, false, APR1(), None, None).unwrap_err();
         assert!(err.contains("already logged"));
         assert!(err.contains("--force"));
     }
@@ -190,9 +250,9 @@ mod tests {
         let path = dir.path().join("history.yaml");
 
         // First day: log a bad rating
-        log_to_file(&path, "238", 1, false, APR1()).unwrap();
+        log_to_file(&path, "238", 1, false, APR1(), None, None).unwrap();
         // Same day: --force replaces it with a better rating
-        log_to_file(&path, "238", 5, true, APR1()).unwrap();
+        log_to_file(&path, "238", 5, true, APR1(), None, None).unwrap();
 
         let h = history::load(&path).unwrap();
         let p = &h.problems["238"];
@@ -209,9 +269,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("history.yaml");
 
-        log_to_file(&path, "238", 1, false, APR1()).unwrap(); // box 1, streak 0
-        log_to_file(&path, "238", 5, true,  APR1()).unwrap(); // replace → box 1, streak 1
-        log_to_file(&path, "238", 5, false, APR2()).unwrap(); // box 2, streak 2
+        log_to_file(&path, "238", 1, false, APR1(), None, None).unwrap(); // box 1, streak 0
+        log_to_file(&path, "238", 5, true,  APR1(), None, None).unwrap(); // replace → box 1, streak 1
+        log_to_file(&path, "238", 5, false, APR2(), None, None).unwrap(); // box 2, streak 2
 
         let h = history::load(&path).unwrap();
         let p = &h.problems["238"];
@@ -226,11 +286,31 @@ mod tests {
         let path = dir.path().join("history.yaml");
 
         // --force on a brand-new problem should just work like a normal log
-        log_to_file(&path, "999", 4, true, APR1()).unwrap();
+        log_to_file(&path, "999", 4, true, APR1(), None, None).unwrap();
 
         let h = history::load(&path).unwrap();
         let p = &h.problems["999"];
         assert_eq!(p.attempts.len(), 1);
         assert_eq!(p.box_num, 1);
+    }
+
+    #[test]
+    fn log_past_date_sorts_correctly() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.yaml");
+
+        log_to_file(&path, "1", 5, false, APR2(), None, None).unwrap(); // log Apr 2
+        log_to_file(&path, "1", 5, false, APR1(), None, None).unwrap(); // log Apr 1 (past)
+
+        let h = history::load(&path).unwrap();
+        let p = &h.problems["1"];
+        assert_eq!(p.attempts.len(), 2);
+        assert_eq!(p.attempts[0].date, APR1());
+        assert_eq!(p.attempts[1].date, APR2());
+        // State should be:
+        // Apr 1: first attempt, box 1, streak 1
+        // Apr 2: second attempt, box 1->2, streak 2
+        assert_eq!(p.box_num, 2);
+        assert_eq!(p.streak_perfect, 2);
     }
 }

@@ -70,6 +70,27 @@ pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
 
     scaffold_with_content(&problem_dir, html, cpp)?;
     eprintln!("Created {}/", folder_name);
+
+    // Initialize in history.yaml
+    let history_path = rak_toml_dir.join("history.yaml");
+    let mut hist = crate::history::load(&history_path)?;
+    let qid_str = detail.summary.frontend_id.clone();
+    if !hist.problems.contains_key(&qid_str) {
+        hist.problems.insert(
+            qid_str,
+            crate::history::Problem {
+                title: Some(detail.summary.title.clone()),
+                difficulty: Some(detail.summary.difficulty.clone()),
+                box_num: 1,
+                streak_perfect: 0,
+                last_review: chrono::Local::now().date_naive(),
+                attempts: vec![],
+            },
+        );
+        crate::history::save(&history_path, &hist)?;
+        eprintln!("Initialized in history.yaml");
+    }
+
     Ok(())
 }
 
