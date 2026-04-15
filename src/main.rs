@@ -8,7 +8,7 @@ mod stt;
 mod analyzer;
 
 use clap::{Parser, Subcommand};
-use commands::{add, analyze, init, log, next, pull, record, scrape, transcribe};
+use commands::{add, analyze, init, log, next, pull, push, record, scrape, transcribe};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
@@ -92,6 +92,11 @@ enum Command {
         #[arg(long, short)]
         refresh: bool,
     },
+    /// Submit solution to LeetCode and display the result
+    Push {
+        /// LeetCode problem ID (numeric or slug)
+        id: String,
+    },
 }
 
 #[tokio::main]
@@ -116,6 +121,7 @@ async fn main() {
             force,
         } => analyze::run(id, provider, force),
         Command::Pull { qid, refresh } => pull::run(qid, refresh),
+        Command::Push { id } => push::run(id),
     };
 
     if let Err(e) = result {

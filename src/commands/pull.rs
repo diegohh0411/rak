@@ -5,6 +5,7 @@ use chrono::Utc;
 use crate::config;
 use crate::leetcode::cache::{self};
 use crate::leetcode::client::LeetcodeClient;
+use crate::leetcode::credentials;
 use crate::leetcode::models::{ProblemCache, QuestionSummary};
 
 const CACHE_MAX_AGE_DAYS: i64 = 7;
@@ -12,8 +13,8 @@ const CACHE_MAX_AGE_DAYS: i64 = 7;
 pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
-    let session = config::resolve_lc_session(&cfg.leetcode);
-    let client = LeetcodeClient::new(session)?;
+    let creds = credentials::resolve().ok();
+    let client = LeetcodeClient::new(creds)?;
 
     let rak_toml_path = config::find_rak_toml(&config_dir)?;
     let rak_toml_dir = rak_toml_path

@@ -209,7 +209,7 @@ fn read_transcripts(dir: &Path) -> Vec<String> {
     entries.into_iter().map(|(_, content)| content).collect()
 }
 
-fn read_latest_solution(dir: &Path) -> Result<String, String> {
+pub(crate) fn read_latest_solution(dir: &Path) -> Result<String, String> {
     let extensions = [
         ".cpp", ".py", ".go", ".java", ".rs", ".js", ".ts", ".c", ".cs",
     ];

@@ -93,12 +93,6 @@ pub struct LeetcodeConfig {
     pub session: String,
 }
 
-pub fn resolve_lc_session(cfg: &LeetcodeConfig) -> Option<String> {
-    if !cfg.session.is_empty() {
-        return Some(cfg.session.clone());
-    }
-    std::env::var("LEETCODE_SESSION").ok()
-}
 
 #[derive(Debug)]
 pub enum ProblemId {

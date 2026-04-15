@@ -34,6 +34,9 @@ pub struct TopicTag {
 pub struct QuestionDetail {
     #[serde(flatten)]
     pub summary: QuestionSummary,
+    /// Internal LeetCode question ID (used for submission, distinct from frontend ID).
+    #[serde(rename = "questionId", default)]
+    pub question_id: String,
     /// Raw HTML from LeetCode; convert to Markdown before writing.
     pub content: Option<String>,
     #[serde(rename = "codeSnippets")]
@@ -55,6 +58,24 @@ pub struct CodeSnippet {
     #[serde(rename = "langSlug")]
     pub lang_slug: String,
     pub code: String,
+}
+
+/// Result from `/submissions/detail/{id}/check/`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CheckResult {
+    /// "STARTED" | "SUCCESS" — keep polling until "SUCCESS"
+    pub state: String,
+    /// "Accepted", "Wrong Answer", "Time Limit Exceeded", "Compile Error", …
+    #[serde(default)]
+    pub status_msg: String,
+    #[serde(default)]
+    pub run_success: bool,
+    pub total_correct: Option<u32>,
+    pub total_testcases: Option<u32>,
+    pub status_runtime: Option<String>,
+    pub status_memory: Option<String>,
+    pub compile_error: Option<String>,
+    pub full_compile_error: Option<String>,
 }
 
 /// On-disk cache envelope.
@@ -95,6 +116,7 @@ mod tests {
     fn cpp_snippet_finds_lang() {
         let d = QuestionDetail {
             summary: make_summary("1", "two-sum"),
+            question_id: "1".to_string(),
             content: None,
             code_snippets: Some(vec![
                 CodeSnippet {
@@ -114,6 +136,7 @@ mod tests {
     fn cpp_snippet_missing_returns_none() {
         let d = QuestionDetail {
             summary: make_summary("1", "two-sum"),
+            question_id: "1".to_string(),
             content: None,
             code_snippets: Some(vec![CodeSnippet {
                 lang_slug: "python3".to_string(),

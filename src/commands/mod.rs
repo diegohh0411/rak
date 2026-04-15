@@ -5,6 +5,7 @@ pub mod log;
 pub mod next;
 pub mod pull;
 pub mod pull_tui;
+pub mod push;
 pub mod record;
 pub mod scrape;
 pub mod transcribe;
