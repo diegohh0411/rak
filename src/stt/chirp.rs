@@ -53,7 +53,8 @@ impl Transcriber for ChirpTranscriber {
     fn transcribe(&self, audio_path: &Path) -> Result<String, String> {
         self.validate()?;
 
-        let duration_secs = audio_duration_secs(audio_path).unwrap_or(0.0);
+        let duration_secs = audio_duration_secs(audio_path)
+            .ok_or_else(|| format!("failed to get duration of {:?}", audio_path))?;
 
         let access_token = get_access_token(&PathBuf::from(&self.service_account_path))?;
 
@@ -313,6 +314,13 @@ mod tests {
             err.contains("rak login chirp"),
             "error should mention 'rak login chirp': {err}"
         );
+    }
+
+    #[test]
+    fn missing_service_account_path_errors_with_login_hint() {
+        let t = ChirpTranscriber::new("key".to_string(), "proj".to_string(), 60.0, "".to_string());
+        let err = t.transcribe(Path::new("test.mp3")).unwrap_err();
+        assert!(err.contains("rak login chirp"), "error: {err}");
     }
 
     #[test]
