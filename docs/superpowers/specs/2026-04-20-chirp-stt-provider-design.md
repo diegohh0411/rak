@@ -75,7 +75,7 @@ Behavior:
 - For `chirp`: copies the service account JSON file into `dirs::data_dir() / "rak" / "gcp-service-account.json"`
 - `api_key` is removed from `rak.toml` provider config entirely — all secrets live in the credential store only
 
-Provider field declarations (registered alongside the factory in `init_providers`):
+Provider login prompts (what `rak login` asks for per provider):
 - `elevenlabs` → `api_key` (hidden)
 - `openrouter` → `api_key` (hidden)
 - `chirp` → `api_key` (hidden), `project_id`, `monthly_cap_minutes`, `service_account_path`
