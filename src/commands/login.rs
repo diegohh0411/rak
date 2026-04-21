@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -146,7 +145,7 @@ pub fn run(provider: Option<String>) -> Result<(), String> {
             .read_line(&mut answer)
             .map_err(|e| format!("failed to read input: {e}"))?;
         let answer = answer.trim();
-        if answer != "y" && answer != "Y" {
+        if !answer.to_lowercase().starts_with('y') {
             println!("Aborted.");
             return Ok(());
         }
@@ -167,7 +166,7 @@ pub fn run(provider: Option<String>) -> Result<(), String> {
             io::stdin()
                 .read_line(&mut line)
                 .map_err(|e| format!("failed to read input: {e}"))?;
-            line.trim_end_matches('\n').trim_end_matches('\r').to_string()
+            line.trim().to_string()
         };
 
         match field.name {
