@@ -1,3 +1,4 @@
+pub mod chirp;
 pub mod elevenlabs;
 pub mod openrouter;
 
