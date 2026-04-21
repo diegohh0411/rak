@@ -67,6 +67,33 @@ pub fn init_providers() {
             .to_string();
         Box::new(openrouter::OpenRouterTranscriber::new(api_key, model))
     });
+    register("chirp", |config| {
+        let api_key = config
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let project_id = config
+            .get("project_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let monthly_cap_minutes = config
+            .get("monthly_cap_minutes")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(60.0);
+        let service_account_path = config
+            .get("service_account_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        Box::new(chirp::ChirpTranscriber::new(
+            api_key,
+            project_id,
+            monthly_cap_minutes,
+            service_account_path,
+        ))
+    });
 }
 
 #[cfg(test)]
