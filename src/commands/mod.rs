@@ -10,3 +10,4 @@ pub mod push;
 pub mod record;
 pub mod scrape;
 pub mod transcribe;
+pub mod completions;
