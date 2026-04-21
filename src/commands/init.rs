@@ -3,6 +3,7 @@ use std::fs;
 const ENV_KEYS: &[(&str, &str)] = &[
     ("ELEVENLABS_API_KEY", ""),
     ("OPENROUTER_API_KEY", ""),
+    ("GOOGLE_SPEECH_API_KEY", ""),
     ("LEETCODE_SESSION", ""),
 ];
 
@@ -12,11 +13,14 @@ const RAK_TOML_TEMPLATE: &str = r#"leetcode_dir = "./cpp"
 default_provider = "elevenlabs"
 
 [transcribe.providers.elevenlabs]
-api_key = ""
+# api_key: run `rak login elevenlabs` to set
 
 [transcribe.providers.openrouter]
-api_key = ""
 model = "google/gemini-flash-2.5-lite"
+# api_key: run `rak login openrouter` to set
+
+[transcribe.providers.chirp]
+# run `rak login chirp` to configure
 
 [analyze]
 default_provider = "claude"
@@ -168,6 +172,8 @@ mod tests {
         assert!(content.contains("[transcribe]"));
         assert!(content.contains("elevenlabs"));
         assert!(content.contains("openrouter"));
+        assert!(content.contains("chirp"));
+        assert!(!content.contains("\napi_key"), "api_key should not appear as a TOML key in the template");
     }
 
     #[test]
@@ -181,5 +187,6 @@ mod tests {
         let content = fs::read_to_string(dir.path().join(".env")).unwrap();
         assert!(content.contains("ELEVENLABS_API_KEY"));
         assert!(content.contains("OPENROUTER_API_KEY"));
+        assert!(content.contains("GOOGLE_SPEECH_API_KEY"));
     }
 }
