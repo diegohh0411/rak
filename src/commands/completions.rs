@@ -68,7 +68,7 @@ eval "$(declare -f _rak | sed 's/^_rak /__rak_clap_original /')"
 unset -f _rak
 
 _rak() {
-    __rak_clap_original
+    __rak_clap_original "$@"
 
     if [[ ${#COMPREPLY[@]} -gt 0 ]]; then
         return
