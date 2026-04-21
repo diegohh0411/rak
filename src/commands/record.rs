@@ -2,6 +2,7 @@ use std::io::{self, BufRead, Write};
 
 use crate::commands::add;
 use crate::config;
+use crate::credentials;
 use crate::recorder::{self, tui};
 
 pub fn run(id: String, force: bool) -> Result<(), String> {
@@ -37,14 +38,18 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
         if prompt_yes_no("Transcribe now?", true) {
             let provider_name = &cfg.transcribe.default_provider;
             let provider_config = cfg.transcribe.providers.get(provider_name);
-            let json_config = provider_config
-                .map(|pc| {
-                    serde_json::json!({
-                        "api_key": pc.api_key,
-                        "model": pc.model,
-                    })
-                })
-                .unwrap_or(serde_json::Value::Null);
+
+            let mut json_config = provider_config
+                .map(|pc| serde_json::json!({ "model": pc.model }))
+                .unwrap_or_else(|| serde_json::json!({}));
+
+            if let Some(creds) = credentials::get_provider(provider_name) {
+                if let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object()) {
+                    for (k, v) in creds_obj {
+                        obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
 
             let provider = crate::stt::get(provider_name, &json_config)?;
             match provider.transcribe(std::path::Path::new(&path)) {

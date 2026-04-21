@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use crate::config::resolve_api_key;
 use crate::stt::Transcriber;
 
 pub struct ElevenLabsTranscriber {
@@ -20,7 +19,13 @@ impl Transcriber for ElevenLabsTranscriber {
     }
 
     fn transcribe(&self, audio_path: &Path) -> Result<String, String> {
-        let key = resolve_api_key(&self.api_key, "ELEVENLABS_API_KEY")?;
+        let key = if self.api_key.is_empty() {
+            std::env::var("ELEVENLABS_API_KEY").map_err(|_| {
+                "ElevenLabs API key not set. Run 'rak login elevenlabs'.".to_string()
+            })?
+        } else {
+            self.api_key.clone()
+        };
 
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(300))
@@ -62,11 +67,12 @@ mod tests {
 
     #[test]
     fn new_without_api_key_errors_on_transcribe() {
+        unsafe { std::env::remove_var("ELEVENLABS_API_KEY") };
         let t = ElevenLabsTranscriber::new("".to_string(), "scribe_v1".to_string());
         let err = t.transcribe(Path::new("test.mp3")).unwrap_err();
         assert!(
-            err.contains("ELEVENLABS_API_KEY"),
-            "error should mention env var: {err}"
+            err.contains("rak login elevenlabs"),
+            "error should mention login: {err}"
         );
     }
 

@@ -82,8 +82,6 @@ impl Default for AnalyzeConfig {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ProviderConfig {
-    #[serde(default)]
-    pub api_key: String,
     pub model: Option<String>,
 }
 
@@ -128,18 +126,6 @@ pub fn load(config_dir: &Path) -> Result<RakConfig, String> {
     let path = find_rak_toml(config_dir)?;
     let contents = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     toml::from_str(&contents).map_err(|e| e.to_string())
-}
-
-pub fn resolve_api_key(config_key: &str, env_var: &str) -> Result<String, String> {
-    if !config_key.is_empty() {
-        return Ok(config_key.to_string());
-    }
-    std::env::var(env_var).map_err(|_| {
-        format!(
-            "API key not set. Provide it in rak.toml or set the {} environment variable.",
-            env_var
-        )
-    })
 }
 
 pub fn resolve_problem_folder(
@@ -239,30 +225,15 @@ leetcode_dir = "lc"
 [transcribe]
 default_provider = "openai"
 [transcribe.providers.openai]
-api_key = "sk-test"
 model = "whisper-1"
 [transcribe.providers.elevenlabs]
-api_key = "elv-test"
 "#;
         let config: RakConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(config.leetcode_dir, "lc");
         assert_eq!(config.transcribe.default_provider, "openai");
         assert_eq!(
-            config.transcribe.providers.get("openai").unwrap().api_key,
-            "sk-test"
-        );
-        assert_eq!(
             config.transcribe.providers.get("openai").unwrap().model,
             Some("whisper-1".to_string())
-        );
-        assert_eq!(
-            config
-                .transcribe
-                .providers
-                .get("elevenlabs")
-                .unwrap()
-                .api_key,
-            "elv-test"
         );
         assert_eq!(
             config.transcribe.providers.get("elevenlabs").unwrap().model,

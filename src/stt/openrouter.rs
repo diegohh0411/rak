@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use crate::config::resolve_api_key;
 use crate::stt::Transcriber;
 
 pub struct OpenRouterTranscriber {
@@ -27,7 +26,13 @@ impl Transcriber for OpenRouterTranscriber {
     }
 
     fn transcribe(&self, audio_path: &Path) -> Result<String, String> {
-        let key = resolve_api_key(&self.api_key, "OPENROUTER_API_KEY")?;
+        let key = if self.api_key.is_empty() {
+            std::env::var("OPENROUTER_API_KEY").map_err(|_| {
+                "OpenRouter API key not set. Run 'rak login openrouter'.".to_string()
+            })?
+        } else {
+            self.api_key.clone()
+        };
 
         let audio_bytes =
             std::fs::read(audio_path).map_err(|e| format!("failed to read audio: {e}"))?;
@@ -80,12 +85,13 @@ mod tests {
 
     #[test]
     fn new_without_api_key_errors_on_transcribe() {
+        unsafe { std::env::remove_var("OPENROUTER_API_KEY") };
         let t =
             OpenRouterTranscriber::new("".to_string(), "google/gemini-flash-2.5-lite".to_string());
         let err = t.transcribe(Path::new("test.mp3")).unwrap_err();
         assert!(
-            err.contains("OPENROUTER_API_KEY"),
-            "error should mention env var: {err}"
+            err.contains("rak login openrouter"),
+            "error should mention login: {err}"
         );
     }
 
