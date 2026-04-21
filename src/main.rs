@@ -9,7 +9,7 @@ mod stt;
 mod analyzer;
 
 use clap::{Parser, Subcommand};
-use commands::{add, analyze, init, log, next, pull, push, record, scrape, transcribe};
+use commands::{add, analyze, init, log, login, next, pull, push, record, scrape, transcribe};
 
 #[derive(Parser)]
 #[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
@@ -101,6 +101,11 @@ enum Command {
         /// LeetCode problem ID (numeric or slug)
         id: String,
     },
+    /// Configure credentials for a provider
+    Login {
+        /// Provider to configure (e.g. chirp, elevenlabs, openrouter)
+        provider: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -126,6 +131,7 @@ async fn main() {
         } => analyze::run(id, provider, force),
         Command::Pull { qid, refresh } => pull::run(qid, refresh),
         Command::Push { id } => push::run(id),
+        Command::Login { provider } => login::run(provider),
     };
 
     if let Err(e) = result {
