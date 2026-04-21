@@ -78,7 +78,7 @@ impl Transcriber for ChirpTranscriber {
 
         let body = serde_json::json!({
             "config": {
-                "model": "chirp_2",
+                "model": "chirp_3",
                 "auto_decoding_config": {}
             },
             "content": audio_b64
