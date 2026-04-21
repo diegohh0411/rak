@@ -1,4 +1,5 @@
 pub mod add;
+pub mod login;
 pub mod analyze;
 pub mod init;
 pub mod log;
