@@ -1,9 +1,6 @@
 use std::fs;
 
 const ENV_KEYS: &[(&str, &str)] = &[
-    ("ELEVENLABS_API_KEY", ""),
-    ("OPENROUTER_API_KEY", ""),
-    ("GOOGLE_SPEECH_API_KEY", ""),
     ("LEETCODE_SESSION", ""),
 ];
 
@@ -177,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn init_creates_env_with_api_keys() {
+    fn init_creates_env() {
         let dir = tempfile::tempdir().unwrap();
         let orig = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
@@ -185,8 +182,6 @@ mod tests {
         std::env::set_current_dir(orig).unwrap();
         result.unwrap();
         let content = fs::read_to_string(dir.path().join(".env")).unwrap();
-        assert!(content.contains("ELEVENLABS_API_KEY"));
-        assert!(content.contains("OPENROUTER_API_KEY"));
-        assert!(content.contains("GOOGLE_SPEECH_API_KEY"));
+        assert!(content.contains("LEETCODE_SESSION"));
     }
 }
