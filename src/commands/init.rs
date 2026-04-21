@@ -56,6 +56,7 @@ pub fn run() -> Result<(), String> {
     init_rak_toml()?;
     init_env()?;
     init_gitignore()?;
+    init_completions()?;
     Ok(())
 }
 
@@ -147,6 +148,34 @@ fn init_gitignore() -> Result<(), String> {
         eprintln!("Added {entry} to .gitignore");
     }
     fs::write(path, content).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+fn init_completions() -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("cannot find home directory")?;
+    let bashrc = home.join(".bashrc");
+
+    let marker = "eval \"$(rak completions)\"";
+
+    if bashrc.is_file() {
+        let existing = fs::read_to_string(&bashrc).map_err(|e| e.to_string())?;
+        if existing.lines().any(|line| line.trim() == marker) {
+            eprintln!("~/.bashrc already has rak completions");
+            return Ok(());
+        }
+        let mut content = existing;
+        if !content.ends_with('\n') {
+            content.push('\n');
+        }
+        content.push_str(marker);
+        content.push('\n');
+        fs::write(&bashrc, content).map_err(|e| e.to_string())?;
+        eprintln!("Added rak completions to ~/.bashrc (restart your shell or run `source ~/.bashrc`)");
+    } else {
+        eprintln!("No ~/.bashrc found — to enable completions, add this to your shell config:");
+        eprintln!("  {marker}");
+    }
 
     Ok(())
 }

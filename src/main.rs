@@ -8,7 +8,7 @@ mod leitner;
 mod stt;
 mod analyzer;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use commands::{add, analyze, init, log, login, next, pull, push, record, scrape, transcribe};
 
 #[derive(Parser)]
@@ -106,6 +106,16 @@ enum Command {
         /// Provider to configure (e.g. chirp, elevenlabs, openrouter)
         provider: Option<String>,
     },
+    /// Generate shell completion script
+    Completions {
+        /// Shell to generate completions for
+        #[arg(short, long, default_value = "bash")]
+        shell: String,
+    },
+}
+
+pub fn build_cli() -> clap::Command {
+    Cli::command()
 }
 
 #[tokio::main]
@@ -132,6 +142,7 @@ async fn main() {
         Command::Pull { qid, refresh } => pull::run(qid, refresh),
         Command::Push { id } => push::run(id),
         Command::Login { provider } => login::run(provider),
+        Command::Completions { shell } => commands::completions::run(&shell),
     };
 
     if let Err(e) = result {
