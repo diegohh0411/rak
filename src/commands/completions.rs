@@ -64,33 +64,34 @@ __rak_problem_slugs() {
 
 __rak_known_providers="elevenlabs openrouter chirp"
 
-# Override the positional-arg handler for subcommands that take problem IDs.
-# The clap-generated completion already registered _rak() as the main handler.
-# We hook into it by appending to the _rak() function's case body.
-__rak_original_func="$(declare -f _rak | tail -n +3 | head -n -1)"
-eval "_rak() {
-$__rak_original_func
-    # Provider completion for 'login <provider>'
-    if [[ \${COMP_WORDS[1]} == \"login\" && \${COMP_CWORD} -eq 2 && \"\${COMP_WORDS[2]}\" != -* ]]; then
-        COMPREPLY=(\$(compgen -W \"$__rak_known_providers\" -- \"\${COMP_WORDS[COMP_CWORD]}\"))
+eval "$(declare -f _rak | sed 's/^_rak /__rak_clap_original /')"
+unset -f _rak
+
+_rak() {
+    __rak_clap_original
+
+    if [[ ${#COMPREPLY[@]} -gt 0 ]]; then
         return
     fi
 
-    # Provider completion for '--provider <value>'
+    if [[ ${COMP_WORDS[1]} == "login" && ${COMP_CWORD} -eq 2 && "${COMP_WORDS[2]}" != -* ]]; then
+        COMPREPLY=($(compgen -W "$__rak_known_providers" -- "${COMP_WORDS[COMP_CWORD]}"))
+        return
+    fi
+
     local i
     for ((i=2; i<COMP_CWORD; i++)); do
-        if [[ \"\${COMP_WORDS[i]}\" == \"--provider\" || \"\${COMP_WORDS[i]}\" == \"-p\" ]]; then
-            COMPREPLY=(\$(compgen -W \"$__rak_known_providers\" -- \"\${COMP_WORDS[COMP_CWORD]}\"))
+        if [[ "${COMP_WORDS[i]}" == "--provider" || "${COMP_WORDS[i]}" == "-p" ]]; then
+            COMPREPLY=($(compgen -W "$__rak_known_providers" -- "${COMP_WORDS[COMP_CWORD]}"))
             return
         fi
     done
 
-    # Dynamic slug completion for positional args on problem-taking subcommands
-    if [[ \${COMP_WORDS[1]} == @(add|log|record|transcribe|analyze|push) ]]; then
-        if [[ \${COMP_CWORD} -eq 2 && \"\${COMP_WORDS[2]}\" != -* ]]; then
+    if [[ ${COMP_WORDS[1]} == @(add|log|record|transcribe|analyze|push) ]]; then
+        if [[ ${COMP_CWORD} -eq 2 && "${COMP_WORDS[2]}" != -* ]]; then
             __rak_problem_slugs
             return
         fi
     fi
-}"
+}
 "#;
