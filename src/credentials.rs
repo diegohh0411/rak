@@ -16,11 +16,12 @@ pub fn load() -> Result<HashMap<String, serde_json::Value>, String> {
 }
 
 pub fn load_from(path: &Path) -> Result<HashMap<String, serde_json::Value>, String> {
-    if !path.exists() {
-        return Ok(HashMap::new());
+    match std::fs::read_to_string(path) {
+        Ok(content) => serde_json::from_str(&content)
+            .map_err(|e| format!("malformed credentials file: {e}")),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(HashMap::new()),
+        Err(e) => Err(e.to_string()),
     }
-    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    serde_json::from_str(&content).map_err(|e| format!("malformed credentials file: {e}"))
 }
 
 pub fn save(data: &HashMap<String, serde_json::Value>) -> Result<(), String> {
@@ -30,6 +31,9 @@ pub fn save(data: &HashMap<String, serde_json::Value>) -> Result<(), String> {
 }
 
 pub fn save_to(data: &HashMap<String, serde_json::Value>, path: &Path) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let content = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, &content).map_err(|e| format!("failed to write credentials: {e}"))?;
