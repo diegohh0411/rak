@@ -69,14 +69,16 @@ API Key: ********
 Behavior:
 - `rak login <provider>` — interactive prompts for that provider's fields
 - `rak login` (no provider) — list available providers and ask which one
-- Each provider declares its required fields via a registry entry
-- If credentials already exist for a provider, overwrite after confirmation
+- Secret fields (API keys) use hidden input (no echo), like a password prompt
+- Non-secret fields (project ID, cap, paths) use visible input
+- If credentials already exist for a provider, prompt: `"Credentials exist for {provider}. Overwrite? [y/N]"` — abort if not confirmed
 - For `chirp`: copies the service account JSON file into `dirs::data_dir() / "rak" / "gcp-service-account.json"`
+- `api_key` is removed from `rak.toml` provider config entirely — all secrets live in the credential store only
 
 Provider field declarations (registered alongside the factory in `init_providers`):
-- `elevenlabs` → `api_key`
-- `openrouter` → `api_key`, `model` (optional)
-- `chirp` → `api_key`, `project_id`, `monthly_cap_minutes`, `service_account_path`
+- `elevenlabs` → `api_key` (hidden)
+- `openrouter` → `api_key` (hidden)
+- `chirp` → `api_key` (hidden), `project_id`, `monthly_cap_minutes`, `service_account_path`
 
 ### 3. Chirp Provider (`src/stt/chirp.rs` — new)
 
@@ -131,8 +133,8 @@ If any credential is missing, error with `run 'rak login chirp'`.
 
 #### `src/commands/transcribe.rs`
 
-- Resolve credentials from the credential store first
-- Fall back to `rak.toml` provider config for non-secret fields like `model`
+- Resolve credentials from the credential store
+- `rak.toml` provider config used only for non-secret fields like `model`
 - Pass merged config to the provider factory
 
 #### `src/main.rs`
@@ -147,6 +149,7 @@ If any credential is missing, error with `run 'rak login chirp'`.
 
 #### `src/commands/init.rs`
 
+- Remove `api_key` from `rak.toml` template — secrets no longer belong there
 - Add `GOOGLE_SPEECH_API_KEY` to `.env` template (for discoverability only; actual auth uses credential store)
 
 #### `Cargo.toml`
@@ -156,7 +159,7 @@ If any credential is missing, error with `run 'rak login chirp'`.
 ### 5. What's NOT Changing
 
 - The `Transcriber` trait — stays as-is with `name()` and `transcribe()`
-- `rak.toml` config structure — still used for non-secret settings (`model`, `default_provider`)
+- `rak.toml` config structure — `api_key` fields removed; still used for non-secret settings (`model`, `default_provider`)
 - Existing `.env` keys remain in the template for discoverability but are not read by providers — all auth goes through the credential store
 - `src/history.rs`, `src/recorder/`, `src/analyzer/`, etc. — no changes
 
