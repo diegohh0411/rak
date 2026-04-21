@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod credentials;
 mod leetcode;
 mod recorder;
 mod history;
