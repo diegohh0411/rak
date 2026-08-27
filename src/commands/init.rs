@@ -46,6 +46,9 @@ model = "sonnet"
 [analyze.providers.gemini]
 model = "gemini-2.5-flash"
 
+[analyze.providers.grok]
+model = "grok-4.6"
+
 [leetcode]
 # session = ""   # or set LEETCODE_SESSION env var
 "#;
