@@ -12,7 +12,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use commands::{add, analyze, init, log, login, next, pull, push, record, scrape, transcribe};
 
 #[derive(Parser)]
-#[command(name = "rak", about = "Rust Application Killer — internship application workflows")]
+#[command(name = "rak", version, about = "Rust Application Killer — internship application workflows")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
