@@ -1,5 +1,6 @@
 pub mod claude;
 pub mod gemini;
+pub mod grok;
 
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -71,6 +72,14 @@ pub fn init_providers() {
             .to_string();
         Box::new(gemini::GeminiAnalyzer::new(model))
     });
+    register("grok", |config| {
+        let model = config
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("grok-4.6")
+            .to_string();
+        Box::new(grok::GrokAnalyzer::new(model))
+    });
 }
 
 #[cfg(test)]
@@ -87,5 +96,12 @@ mod tests {
         let system_prompt = "Q:{question} S:{solution} T:{transcripts}";
         let prompt = ctx.build_prompt(system_prompt);
         assert_eq!(prompt, "Q:Q S:S T:T1\n\n---\n\nT2");
+    }
+
+    #[test]
+    fn grok_provider_is_registered() {
+        init_providers();
+        let analyzer = get("grok", &serde_json::json!({})).expect("grok should be registered");
+        assert_eq!(analyzer.name(), "grok");
     }
 }
