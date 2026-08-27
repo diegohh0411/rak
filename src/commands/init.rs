@@ -1,8 +1,6 @@
 use std::fs;
 
-const ENV_KEYS: &[(&str, &str)] = &[
-    ("LEETCODE_SESSION", ""),
-];
+const ENV_KEYS: &[(&str, &str)] = &[("LEETCODE_SESSION", "")];
 
 const RAK_TOML_TEMPLATE: &str = r#"leetcode_dir = "./cpp"
 
@@ -13,7 +11,7 @@ default_provider = "elevenlabs"
 # api_key: run `rak login elevenlabs` to set
 
 [transcribe.providers.openrouter]
-model = "google/gemini-flash-2.5-lite"
+model = "x-ai/grok-stt-1.0"
 # api_key: run `rak login openrouter` to set
 
 [transcribe.providers.chirp]
@@ -171,7 +169,9 @@ fn init_completions() -> Result<(), String> {
         content.push_str(marker);
         content.push('\n');
         fs::write(&bashrc, content).map_err(|e| e.to_string())?;
-        eprintln!("Added rak completions to ~/.bashrc (restart your shell or run `source ~/.bashrc`)");
+        eprintln!(
+            "Added rak completions to ~/.bashrc (restart your shell or run `source ~/.bashrc`)"
+        );
     } else {
         eprintln!("No ~/.bashrc found — to enable completions, add this to your shell config:");
         eprintln!("  {marker}");
@@ -184,9 +184,13 @@ fn init_completions() -> Result<(), String> {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::Mutex;
+
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn init_creates_rak_toml() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let orig = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
@@ -199,11 +203,23 @@ mod tests {
         assert!(content.contains("elevenlabs"));
         assert!(content.contains("openrouter"));
         assert!(content.contains("chirp"));
-        assert!(!content.contains("\napi_key"), "api_key should not appear as a TOML key in the template");
+        assert!(
+            content.contains("x-ai/grok-stt-1.0"),
+            "openrouter default should be an STT model"
+        );
+        assert!(
+            !content.contains("gemini-flash"),
+            "openrouter default must not be a chat model"
+        );
+        assert!(
+            !content.contains("\napi_key"),
+            "api_key should not appear as a TOML key in the template"
+        );
     }
 
     #[test]
     fn init_creates_env() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let orig = std::env::current_dir().unwrap();
         std::env::set_current_dir(dir.path()).unwrap();
