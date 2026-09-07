@@ -49,6 +49,12 @@ model = "gemini-2.5-flash"
 [analyze.providers.grok]
 model = "grok-4.6"
 
+[analyze.providers.openrouter]
+model = "~google/gemini-flash-latest"
+
+[analyze.providers.codex]
+# model omitted: uses Codex's own default
+
 [leetcode]
 # session = ""   # or set LEETCODE_SESSION env var
 "#;
@@ -210,9 +216,36 @@ mod tests {
             content.contains("x-ai/grok-stt-1.0"),
             "openrouter default should be an STT model"
         );
+        let transcribe_openrouter = content
+            .split("[transcribe.providers.openrouter]")
+            .nth(1)
+            .unwrap()
+            .split('[')
+            .next()
+            .unwrap();
         assert!(
-            !content.contains("gemini-flash"),
-            "openrouter default must not be a chat model"
+            transcribe_openrouter.contains("x-ai/grok-stt-1.0"),
+            "transcribe openrouter default must be an STT model"
+        );
+        assert!(
+            !transcribe_openrouter.contains("gemini-flash"),
+            "transcribe openrouter default must not be a chat model"
+        );
+        assert!(
+            content.contains("[analyze.providers.openrouter]"),
+            "analyze should list the openrouter provider"
+        );
+        assert!(
+            content.contains("~google/gemini-flash-latest"),
+            "analyze openrouter default should be the Gemini Flash latest alias"
+        );
+        assert!(
+            content.contains("[analyze.providers.codex]"),
+            "analyze should list the codex provider"
+        );
+        assert!(
+            content.contains("default_provider = \"claude\""),
+            "new installs should keep claude as the analyze default"
         );
         assert!(
             !content.contains("\napi_key"),

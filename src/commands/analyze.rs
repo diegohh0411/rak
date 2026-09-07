@@ -5,6 +5,7 @@ use chrono::NaiveDate;
 
 use crate::analyzer::{self, AnalysisContext};
 use crate::config;
+use crate::credentials;
 use crate::history;
 use crate::leetcode::cache;
 
@@ -32,13 +33,19 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
         ));
     }
 
-    let provider_name = provider
-        .as_deref()
-        .unwrap_or(&cfg.analyze.default_provider);
+    let provider_name = provider.as_deref().unwrap_or(&cfg.analyze.default_provider);
     let provider_config = cfg.analyze.providers.get(provider_name);
-    let json_config = provider_config
+    let mut json_config = provider_config
         .map(|pc| serde_json::json!({ "model": pc.model }))
-        .unwrap_or(serde_json::Value::Null);
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    if let Some(creds) = credentials::get_provider(provider_name) {
+        if let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object()) {
+            for (k, v) in creds_obj {
+                obj.insert(k.clone(), v.clone());
+            }
+        }
+    }
 
     let analyzer = analyzer::get(provider_name, &json_config)?;
 
@@ -95,15 +102,18 @@ struct ProblemEntry {
     analysis: String,
 }
 
-fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -> Result<(), String> {
+fn rebuild_master(
+    leetcode_dir: &Path,
+    history_path: &Path,
+    master_dir: &Path,
+) -> Result<(), String> {
     let mut hist = history::load(history_path)?;
     let mut history_dirty = false;
     let cache = cache::load(master_dir);
 
     let mut entries: Vec<ProblemEntry> = Vec::new();
 
-    let rd = fs::read_dir(leetcode_dir)
-        .map_err(|e| format!("failed to read leetcode_dir: {e}"))?;
+    let rd = fs::read_dir(leetcode_dir).map_err(|e| format!("failed to read leetcode_dir: {e}"))?;
 
     for entry in rd.flatten() {
         let path = entry.path();
@@ -207,7 +217,6 @@ fn rebuild_master(leetcode_dir: &Path, history_path: &Path, master_dir: &Path) -
 
     Ok(())
 }
-
 
 fn folder_to_history_key(folder_name: &str) -> String {
     // "0001.two-sum" → "1"  (matches the key used by `rak log`)
@@ -339,7 +348,10 @@ mod tests {
     #[test]
     fn folder_to_history_key_custom() {
         assert_eq!(folder_to_history_key("c3ai-strings"), "c3ai-strings");
-        assert_eq!(folder_to_history_key("bloomberg-design"), "bloomberg-design");
+        assert_eq!(
+            folder_to_history_key("bloomberg-design"),
+            "bloomberg-design"
+        );
     }
 
     #[test]
