@@ -1,6 +1,8 @@
 pub mod claude;
+pub mod codex;
 pub mod gemini;
 pub mod grok;
+pub mod openrouter;
 
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -80,6 +82,27 @@ pub fn init_providers() {
             .to_string();
         Box::new(grok::GrokAnalyzer::new(model))
     });
+    register("openrouter", |config| {
+        let api_key = config
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let model = config
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        Box::new(openrouter::OpenRouterAnalyzer::new(api_key, model))
+    });
+    register("codex", |config| {
+        let model = config
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        Box::new(codex::CodexAnalyzer::new(model))
+    });
 }
 
 #[cfg(test)]
@@ -103,5 +126,20 @@ mod tests {
         init_providers();
         let analyzer = get("grok", &serde_json::json!({})).expect("grok should be registered");
         assert_eq!(analyzer.name(), "grok");
+    }
+
+    #[test]
+    fn openrouter_provider_is_registered() {
+        init_providers();
+        let analyzer =
+            get("openrouter", &serde_json::json!({})).expect("openrouter should be registered");
+        assert_eq!(analyzer.name(), "openrouter");
+    }
+
+    #[test]
+    fn codex_provider_is_registered() {
+        init_providers();
+        let analyzer = get("codex", &serde_json::json!({})).expect("codex should be registered");
+        assert_eq!(analyzer.name(), "codex");
     }
 }
