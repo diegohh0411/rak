@@ -14,13 +14,11 @@ impl CodexAnalyzer {
 }
 
 /// `codex exec` argv. Prompt is read from stdin (`-`). `--model` is omitted when
-/// empty so Codex uses its own default. `--ask-for-approval never` is the
-/// non-interactive equivalent of Grok's `dontAsk`, not workspace isolation.
+/// empty so Codex uses its own default. Do not pass `--ask-for-approval`:
+/// `codex exec` (0.153+) does not accept that flag.
 fn exec_args(model: &str) -> Vec<String> {
     let mut args = vec![
         "exec".to_string(),
-        "--ask-for-approval".to_string(),
-        "never".to_string(),
         "--color".to_string(),
         "never".to_string(),
     ];
@@ -71,16 +69,10 @@ mod tests {
     #[test]
     fn exec_args_omit_model_when_unset() {
         let args = exec_args("");
-        assert_eq!(
-            args,
-            vec![
-                "exec",
-                "--ask-for-approval",
-                "never",
-                "--color",
-                "never",
-                "-"
-            ]
+        assert_eq!(args, vec!["exec", "--color", "never", "-"]);
+        assert!(
+            !args.iter().any(|a| a == "--ask-for-approval"),
+            "codex exec 0.153+ has no --ask-for-approval"
         );
         assert!(
             !args.iter().any(|a| a == "--model"),
