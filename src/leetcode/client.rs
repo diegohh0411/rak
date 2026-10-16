@@ -247,6 +247,10 @@ impl LeetcodeClient {
                 status
                 content
                 codeSnippets { langSlug code }
+                exampleTestcaseList
+                exampleTestcases
+                sampleTestCase
+                metaData
               }
             }
         "#;

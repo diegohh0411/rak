@@ -5,6 +5,7 @@ mod leetcode;
 mod recorder;
 mod history;
 mod leitner;
+mod scaffold;
 mod stt;
 mod analyzer;
 
