@@ -170,8 +170,25 @@ pub fn collapse_inline_code(s: &str) -> String {
 fn is_markdown_char(c: char) -> bool {
     matches!(
         c,
-        '\\' | '*' | '_' | '-' | '+' | '.' | '>' | '|' | '$' | '#' | '=' | '[' | ']' | '('
-            | ')' | '!' | '~' | '`' | '"' | '\''
+        '\\' | '*'
+            | '_'
+            | '-'
+            | '+'
+            | '.'
+            | '>'
+            | '|'
+            | '$'
+            | '#'
+            | '='
+            | '['
+            | ']'
+            | '('
+            | ')'
+            | '!'
+            | '~'
+            | '`'
+            | '"'
+            | '\''
     )
 }
 
@@ -195,7 +212,11 @@ fn go_is_space(b: u8) -> bool {
 }
 
 fn next_byte(chars: &[u8], index: usize) -> u8 {
-    chars[index + 1..].iter().copied().find(|&b| b != ESC).unwrap_or(0)
+    chars[index + 1..]
+        .iter()
+        .copied()
+        .find(|&b| b != ESC)
+        .unwrap_or(0)
 }
 
 fn next_rune(chars: &[u8], index: usize) -> Option<char> {
@@ -247,8 +268,8 @@ fn is_atx_header(chars: &[u8], index: usize) -> i64 {
         return -1;
     }
     let mut n = 1;
-    for i in index + 1..chars.len() {
-        match chars[i] {
+    for (i, &b) in chars.iter().enumerate().skip(index + 1) {
+        match b {
             b'#' => {
                 n += 1;
                 if n > 6 {
@@ -288,8 +309,8 @@ fn is_divider(chars: &[u8], index: usize) -> i64 {
     }
     let mut count = 1;
     let mut last = chars.len();
-    for i in index + 1..chars.len() {
-        match chars[i] {
+    for (i, &b) in chars.iter().enumerate().skip(index + 1) {
+        match b {
             ESC | b' ' => continue,
             b if b == c => count += 1,
             b'\n' => {
@@ -299,7 +320,11 @@ fn is_divider(chars: &[u8], index: usize) -> i64 {
             _ => return -1,
         }
     }
-    if count >= 3 { (last - index) as i64 } else { -1 }
+    if count >= 3 {
+        (last - index) as i64
+    } else {
+        -1
+    }
 }
 
 fn is_ordered_list(chars: &[u8], index: usize) -> i64 {
@@ -314,7 +339,11 @@ fn is_ordered_list(chars: &[u8], index: usize) -> i64 {
         return -1;
     }
     let next = next_byte(chars, index);
-    if go_is_space(next) || next == 0 { 1 } else { -1 }
+    if go_is_space(next) || next == 0 {
+        1
+    } else {
+        -1
+    }
 }
 
 fn is_unordered_list(chars: &[u8], index: usize) -> i64 {
@@ -322,7 +351,11 @@ fn is_unordered_list(chars: &[u8], index: usize) -> i64 {
         return -1;
     }
     let next = next_byte(chars, index);
-    if go_is_space(next) || next == 0 { 1 } else { -1 }
+    if go_is_space(next) || next == 0 {
+        1
+    } else {
+        -1
+    }
 }
 
 fn is_image_or_link(chars: &[u8], index: usize) -> i64 {

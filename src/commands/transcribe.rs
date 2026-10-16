@@ -33,11 +33,11 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
         .map(|pc| serde_json::json!({ "model": pc.model }))
         .unwrap_or_else(|| serde_json::json!({}));
 
-    if let Some(creds) = credentials::get_provider(provider_name) {
-        if let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object()) {
-            for (k, v) in creds_obj {
-                obj.insert(k.clone(), v.clone());
-            }
+    if let Some(creds) = credentials::get_provider(provider_name)
+        && let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object())
+    {
+        for (k, v) in creds_obj {
+            obj.insert(k.clone(), v.clone());
         }
     }
 

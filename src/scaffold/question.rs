@@ -95,7 +95,11 @@ impl MetaData {
     }
 
     pub fn n_arg(&self) -> usize {
-        if self.systemdesign { 2 } else { self.params.len() }
+        if self.systemdesign {
+            2
+        } else {
+            self.params.len()
+        }
     }
 
     pub fn result_type(&self) -> String {
@@ -105,7 +109,11 @@ impl MetaData {
             return r.ty.clone();
         }
         match &self.output {
-            Some(o) => self.params.get(o.paramindex).map(|p| p.ty.clone()).unwrap_or_default(),
+            Some(o) => self
+                .params
+                .get(o.paramindex)
+                .map(|p| p.ty.clone())
+                .unwrap_or_default(),
             None => String::new(),
         }
     }
@@ -123,7 +131,10 @@ impl<'a> Question<'a> {
     }
 
     pub fn url(&self) -> String {
-        format!("https://leetcode.com/problems/{}/", self.detail.summary.title_slug)
+        format!(
+            "https://leetcode.com/problems/{}/",
+            self.detail.summary.title_slug
+        )
     }
 
     pub fn content(&self) -> &str {
@@ -150,7 +161,10 @@ impl<'a> Question<'a> {
     pub fn example_test_cases(&self) -> Vec<String> {
         let d = self.detail;
         if let Some(list) = d.example_testcase_list.as_ref().filter(|l| !l.is_empty()) {
-            return list.iter().flat_map(|c| c.split('\n').map(String::from)).collect();
+            return list
+                .iter()
+                .flat_map(|c| c.split('\n').map(String::from))
+                .collect();
         }
         if let Some(s) = d.example_testcases.as_deref().filter(|s| !s.is_empty()) {
             return s.split('\n').map(String::from).collect();
@@ -217,9 +231,9 @@ fn decode_entities(s: &str) -> String {
             "quot" => Some('"'),
             "apos" => Some('\''),
             "nbsp" => Some('\u{00A0}'),
-            e if e.starts_with("#x") || e.starts_with("#X") => {
-                u32::from_str_radix(&e[2..], 16).ok().and_then(char::from_u32)
-            }
+            e if e.starts_with("#x") || e.starts_with("#X") => u32::from_str_radix(&e[2..], 16)
+                .ok()
+                .and_then(char::from_u32),
             e if e.starts_with('#') => e[1..].parse().ok().and_then(char::from_u32),
             _ => None,
         };
@@ -256,6 +270,9 @@ mod tests {
 
     #[test]
     fn decodes_entities() {
-        assert_eq!(decode_entities("&quot;a&quot; &lt; &#39;b&#39;"), "\"a\" < 'b'");
+        assert_eq!(
+            decode_entities("&quot;a&quot; &lt; &#39;b&#39;"),
+            "\"a\" < 'b'"
+        );
     }
 }

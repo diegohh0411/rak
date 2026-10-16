@@ -87,7 +87,7 @@ fn collect_due(history: &History, today: NaiveDate, count: usize) -> Vec<DueItem
         })
         .collect();
 
-    items.sort_by(|a, b| b.days_overdue.cmp(&a.days_overdue));
+    items.sort_by_key(|a| std::cmp::Reverse(a.days_overdue));
     items.truncate(count);
     items
 }

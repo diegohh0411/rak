@@ -53,7 +53,11 @@ pub fn extract_solution(source: &str) -> String {
             lines.push(line);
         }
     }
-    if found { lines.join("\n").trim().to_string() } else { source.to_string() }
+    if found {
+        lines.join("\n").trim().to_string()
+    } else {
+        source.to_string()
+    }
 }
 
 /// leetgo's `removeUselessComments` modifier.
@@ -104,7 +108,11 @@ fn deserialize_line(p: &MetaDataParam, input: &str) -> String {
 }
 
 fn param_list(params: &[MetaDataParam]) -> String {
-    params.iter().map(|p| p.name.as_str()).collect::<Vec<_>>().join(", ")
+    params
+        .iter()
+        .map(|p| p.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn test_content(q: &Question) -> String {
@@ -142,27 +150,54 @@ fn test_content(q: &Question) -> String {
             params
                 .iter()
                 .enumerate()
-                .map(|(i, p)| format!("\t\t\t{}\n", deserialize_line(p, &format!("method_params, {i}"))))
+                .map(|(i, p)| {
+                    format!(
+                        "\t\t\t{}\n",
+                        deserialize_line(p, &format!("method_params, {i}"))
+                    )
+                })
                 .collect()
         };
         let lambda_param = |params: &[MetaDataParam]| {
-            if params.is_empty() { "const vector<string> &" } else { "const vector<string> &method_params" }
+            if params.is_empty() {
+                "const vector<string> &"
+            } else {
+                "const vector<string> &method_params"
+            }
         };
         body.push_str("\tvector<string> output;\n");
-        body.push_str("\tconst unordered_map<string, function<void(const vector<string> &)>> methods = {\n");
+        body.push_str(
+            "\tconst unordered_map<string, function<void(const vector<string> &)>> methods = {\n",
+        );
         let ctor = &m.constructor.params;
-        body.push_str(&format!("\t\t{{ \"{}\", [&]({}) {{\n", m.classname, lambda_param(ctor)));
+        body.push_str(&format!(
+            "\t\t{{ \"{}\", [&]({}) {{\n",
+            m.classname,
+            lambda_param(ctor)
+        ));
         body.push_str(&scan(ctor));
-        body.push_str(&format!("\t\t\tobj = make_unique<{}>({});\n", m.classname, param_list(ctor)));
+        body.push_str(&format!(
+            "\t\t\tobj = make_unique<{}>({});\n",
+            m.classname,
+            param_list(ctor)
+        ));
         body.push_str("\t\t\toutput.push_back(\"null\");\n\t\t} },\n");
         for method in &m.methods {
-            body.push_str(&format!("\t\t{{ \"{}\", [&]({}) {{\n", method.name, lambda_param(&method.params)));
+            body.push_str(&format!(
+                "\t\t{{ \"{}\", [&]({}) {{\n",
+                method.name,
+                lambda_param(&method.params)
+            ));
             body.push_str(&scan(&method.params));
             let call = format!("obj->{}({})", method.name, param_list(&method.params));
             if !method.ret.ty.is_empty() && method.ret.ty != "void" {
-                body.push_str(&format!("\t\t\toutput.push_back(LeetCodeIO::serialize({call}));\n"));
+                body.push_str(&format!(
+                    "\t\t\toutput.push_back(LeetCodeIO::serialize({call}));\n"
+                ));
             } else {
-                body.push_str(&format!("\t\t\t{call};\n\t\t\toutput.push_back(\"null\");\n"));
+                body.push_str(&format!(
+                    "\t\t\t{call};\n\t\t\toutput.push_back(\"null\");\n"
+                ));
             }
             body.push_str("\t\t} },\n");
         }
@@ -186,7 +221,11 @@ fn test_content(q: &Question) -> String {
         if m.ret.as_ref().is_some_and(|r| r.ty != "void") {
             body.push_str("\tLeetCodeIO::print(out_stream, res);\n");
         } else if let Some(o) = &m.output {
-            let name = m.params.get(o.paramindex).map(|p| p.name.as_str()).unwrap_or("");
+            let name = m
+                .params
+                .get(o.paramindex)
+                .map(|p| p.name.as_str())
+                .unwrap_or("");
             body.push_str(&format!("\tLeetCodeIO::print(out_stream, {name});\n"));
         } else {
             body.push_str("\tout_stream << \"null\";\n");
@@ -198,7 +237,13 @@ fn test_content(q: &Question) -> String {
         .strip_suffix('\n')
         .unwrap_or(&body)
         .split('\n')
-        .map(|l| if l.is_empty() { String::new() } else { format!("\t{l}") })
+        .map(|l| {
+            if l.is_empty() {
+                String::new()
+            } else {
+                format!("\t{l}")
+            }
+        })
         .collect();
     let test = format!(
         "int main() {{\n\
@@ -213,7 +258,11 @@ fn test_content(q: &Question) -> String {
          }}",
         indented.join("\n")
     );
-    if m.manual { format!("// {MANUAL_WARNING}\n{test}") } else { test }
+    if m.manual {
+        format!("// {MANUAL_WARNING}\n{test}")
+    } else {
+        test
+    }
 }
 
 #[cfg(test)]
@@ -222,7 +271,8 @@ mod tests {
 
     #[test]
     fn extracts_code_between_markers() {
-        let src = "// x\n// @lc code=begin\n\nclass Solution {};\n\n// @lc code=end\nint main() {}\n";
+        let src =
+            "// x\n// @lc code=begin\n\nclass Solution {};\n\n// @lc code=end\nint main() {}\n";
         assert_eq!(extract_solution(src), "class Solution {};");
     }
 

@@ -45,7 +45,11 @@ pub fn render(detail: &QuestionDetail) -> Result<Files, String> {
 
 /// Write the problem files into `problem_dir` and make sure the C++ support
 /// headers exist in `workspace_dir`.
-pub fn write(detail: &QuestionDetail, workspace_dir: &Path, problem_dir: &Path) -> Result<(), String> {
+pub fn write(
+    detail: &QuestionDetail,
+    workspace_dir: &Path,
+    problem_dir: &Path,
+) -> Result<(), String> {
     let files = render(detail)?;
     write_support_headers(workspace_dir)?;
     std::fs::create_dir_all(problem_dir).map_err(|e| e.to_string())?;

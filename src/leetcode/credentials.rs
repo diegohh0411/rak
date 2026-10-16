@@ -78,15 +78,15 @@ fn find_firefox_dbs() -> Vec<PathBuf> {
 
     // WSL2: enumerate Windows user directories under /mnt/c/Users
     let wsl_users = PathBuf::from("/mnt/c/Users");
-    if wsl_users.is_dir() {
-        if let Ok(entries) = fs::read_dir(&wsl_users) {
-            for entry in entries.flatten() {
-                profile_roots.push(
-                    entry
-                        .path()
-                        .join("AppData/Roaming/Mozilla/Firefox/Profiles"),
-                );
-            }
+    if wsl_users.is_dir()
+        && let Ok(entries) = fs::read_dir(&wsl_users)
+    {
+        for entry in entries.flatten() {
+            profile_roots.push(
+                entry
+                    .path()
+                    .join("AppData/Roaming/Mozilla/Firefox/Profiles"),
+            );
         }
     }
 
@@ -165,10 +165,8 @@ pub fn resolve() -> Result<LeetcodeCredentials, String> {
         }
     }
 
-    Err(
-        "No LeetCode credentials found. \
+    Err("No LeetCode credentials found. \
          Set LEETCODE_SESSION in your .env / environment, \
          or ensure Firefox is installed with an active LeetCode session."
-            .to_string(),
-    )
+        .to_string())
 }

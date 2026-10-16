@@ -16,8 +16,7 @@ pub async fn run(url: String, output: Option<String>) -> Result<(), String> {
             if let Some(parent) = Path::new(&path).parent()
                 && !parent.as_os_str().is_empty()
             {
-                fs::create_dir_all(parent)
-                    .map_err(|e| format!("failed to create dirs: {e}"))?;
+                fs::create_dir_all(parent).map_err(|e| format!("failed to create dirs: {e}"))?;
             }
             fs::write(&path, &markdown).map_err(|e| format!("failed to write file: {e}"))?;
             eprintln!("Written to {path}");
@@ -61,8 +60,13 @@ async fn fetch_html(url: &str) -> Result<String, String> {
         .await
         .map_err(|e| format!("failed to get page content: {e}"))?;
 
-    browser.close().await.map_err(|e| format!("failed to close browser: {e}"))?;
-    handler_task.await.map_err(|e| format!("handler task failed: {e}"))?;
+    browser
+        .close()
+        .await
+        .map_err(|e| format!("failed to close browser: {e}"))?;
+    handler_task
+        .await
+        .map_err(|e| format!("handler task failed: {e}"))?;
 
     Ok(html)
 }

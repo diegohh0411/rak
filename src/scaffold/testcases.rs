@@ -39,8 +39,13 @@ fn output_is_valid(q: &Question, input: &[String], output: &str) -> bool {
         return false;
     }
     if q.meta.systemdesign {
-        let Some(out) = split_array(output) else { return false };
-        let n_in = input.first().and_then(|s| split_array(s)).map_or(0, |v| v.len());
+        let Some(out) = split_array(output) else {
+            return false;
+        };
+        let n_in = input
+            .first()
+            .and_then(|s| split_array(s))
+            .map_or(0, |v| v.len());
         return out.len() == n_in;
     }
     is_valid_value(&q.meta.result_type(), output.trim())

@@ -58,7 +58,9 @@ impl Dom {
                 NodeData::Text { contents } => {
                     self.new_node(Kind::Text, contents.borrow().to_string())
                 }
-                NodeData::Comment { contents } => self.new_node(Kind::Comment, contents.to_string()),
+                NodeData::Comment { contents } => {
+                    self.new_node(Kind::Comment, contents.to_string())
+                }
                 _ => continue,
             };
             self.append_child(parent, id);
@@ -141,7 +143,9 @@ impl Dom {
     }
 
     pub fn first_child_element(&self, n: Id) -> Option<Id> {
-        self.children(n).into_iter().find(|&c| self.kind(c) == Kind::Element)
+        self.children(n)
+            .into_iter()
+            .find(|&c| self.kind(c) == Kind::Element)
     }
 
     pub fn next_sibling_element(&self, n: Id) -> Option<Id> {
@@ -183,7 +187,9 @@ impl Dom {
     // ----- mutation -----
 
     pub fn remove(&mut self, n: Id) {
-        let Some(p) = self.nodes[n].parent else { return };
+        let Some(p) = self.nodes[n].parent else {
+            return;
+        };
         let prev = self.nodes[n].prev;
         let next = self.nodes[n].next;
         match prev {
@@ -238,7 +244,9 @@ impl Dom {
     }
 
     pub fn wrap_node(&mut self, existing: Id, wrapper: Id) -> Id {
-        let Some(p) = self.parent(existing) else { return existing };
+        let Some(p) = self.parent(existing) else {
+            return existing;
+        };
         self.insert_before(p, wrapper, Some(existing));
         self.append_child(wrapper, existing);
         wrapper
@@ -295,7 +303,12 @@ impl Dom {
         self.neighbor(n, Self::first_child, Self::prev, None)
     }
     pub fn next_neighbor_element(&self, n: Id) -> Option<Id> {
-        self.neighbor(n, Self::first_child_element, Self::next_sibling_element, None)
+        self.neighbor(
+            n,
+            Self::first_child_element,
+            Self::next_sibling_element,
+            None,
+        )
     }
     pub fn next_neighbor_node_excluding_own_child(&self, n: Id) -> Option<Id> {
         self.neighbor(n, |_, _| None, Self::next, None)
@@ -325,23 +338,101 @@ impl Dom {
 pub fn name_is_block_node(name: &str) -> bool {
     matches!(
         name,
-        "address" | "article" | "aside" | "blockquote" | "details" | "dialog" | "dd" | "div"
-            | "dl" | "dt" | "fieldset" | "figcaption" | "figure" | "footer" | "form" | "h1"
-            | "h2" | "h3" | "h4" | "h5" | "h6" | "header" | "hgroup" | "hr" | "li" | "main"
-            | "nav" | "ol" | "p" | "pre" | "section" | "table" | "ul"
+        "address"
+            | "article"
+            | "aside"
+            | "blockquote"
+            | "details"
+            | "dialog"
+            | "dd"
+            | "div"
+            | "dl"
+            | "dt"
+            | "fieldset"
+            | "figcaption"
+            | "figure"
+            | "footer"
+            | "form"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "header"
+            | "hgroup"
+            | "hr"
+            | "li"
+            | "main"
+            | "nav"
+            | "ol"
+            | "p"
+            | "pre"
+            | "section"
+            | "table"
+            | "ul"
     )
 }
 
 pub fn name_is_inline_node(name: &str) -> bool {
     matches!(
         name,
-        "#text" | "a" | "abbr" | "acronym" | "audio" | "b" | "bdi" | "bdo" | "big" | "br"
-            | "button" | "canvas" | "cite" | "code" | "data" | "datalist" | "del" | "dfn"
-            | "em" | "embed" | "i" | "iframe" | "img" | "input" | "ins" | "kbd" | "label"
-            | "map" | "mark" | "meter" | "noscript" | "object" | "output" | "picture"
-            | "progress" | "q" | "ruby" | "s" | "samp" | "script" | "select" | "slot"
-            | "small" | "span" | "strong" | "sub" | "sup" | "svg" | "template" | "textarea"
-            | "time" | "u" | "tt" | "var" | "video" | "wbr"
+        "#text"
+            | "a"
+            | "abbr"
+            | "acronym"
+            | "audio"
+            | "b"
+            | "bdi"
+            | "bdo"
+            | "big"
+            | "br"
+            | "button"
+            | "canvas"
+            | "cite"
+            | "code"
+            | "data"
+            | "datalist"
+            | "del"
+            | "dfn"
+            | "em"
+            | "embed"
+            | "i"
+            | "iframe"
+            | "img"
+            | "input"
+            | "ins"
+            | "kbd"
+            | "label"
+            | "map"
+            | "mark"
+            | "meter"
+            | "noscript"
+            | "object"
+            | "output"
+            | "picture"
+            | "progress"
+            | "q"
+            | "ruby"
+            | "s"
+            | "samp"
+            | "script"
+            | "select"
+            | "slot"
+            | "small"
+            | "span"
+            | "strong"
+            | "sub"
+            | "sup"
+            | "svg"
+            | "template"
+            | "textarea"
+            | "time"
+            | "u"
+            | "tt"
+            | "var"
+            | "video"
+            | "wbr"
     )
 }
 

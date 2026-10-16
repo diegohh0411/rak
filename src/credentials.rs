@@ -17,8 +17,9 @@ pub fn load() -> Result<HashMap<String, serde_json::Value>, String> {
 
 pub fn load_from(path: &Path) -> Result<HashMap<String, serde_json::Value>, String> {
     match std::fs::read_to_string(path) {
-        Ok(content) => serde_json::from_str(&content)
-            .map_err(|e| format!("malformed credentials file: {e}")),
+        Ok(content) => {
+            serde_json::from_str(&content).map_err(|e| format!("malformed credentials file: {e}"))
+        }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(HashMap::new()),
         Err(e) => Err(e.to_string()),
     }
@@ -110,7 +111,7 @@ mod tests {
         let path = dir.path().join("credentials.json");
         save_to(&std::collections::HashMap::new(), &path).unwrap();
         let loaded = load_from(&path).unwrap();
-        assert!(loaded.get("nonexistent").is_none());
+        assert!(!loaded.contains_key("nonexistent"));
     }
 
     #[test]

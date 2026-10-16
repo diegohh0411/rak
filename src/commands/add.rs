@@ -53,7 +53,13 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let problem_dir = tmp.path().join("some-slug");
         scaffold(&problem_dir).unwrap();
-        assert_eq!(fs::read_to_string(problem_dir.join("question.md")).unwrap(), "");
-        assert_eq!(fs::read_to_string(problem_dir.join("solution.cpp")).unwrap(), "");
+        assert_eq!(
+            fs::read_to_string(problem_dir.join("question.md")).unwrap(),
+            ""
+        );
+        assert_eq!(
+            fs::read_to_string(problem_dir.join("solution.cpp")).unwrap(),
+            ""
+        );
     }
 }

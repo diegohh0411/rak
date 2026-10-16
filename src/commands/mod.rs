@@ -1,8 +1,9 @@
 pub mod add;
-pub mod login;
 pub mod analyze;
+pub mod completions;
 pub mod init;
 pub mod log;
+pub mod login;
 pub mod next;
 pub mod pull;
 pub mod pull_tui;
@@ -10,4 +11,3 @@ pub mod push;
 pub mod record;
 pub mod scrape;
 pub mod transcribe;
-pub mod completions;

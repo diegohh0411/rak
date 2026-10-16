@@ -21,10 +21,9 @@ pub fn load(rak_toml_dir: &Path) -> Option<ProblemCache> {
 /// Save cache to disk, creating the directory if needed.
 pub fn save(rak_toml_dir: &Path, cache: &ProblemCache) -> Result<(), String> {
     let dir = cache_dir(rak_toml_dir);
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("failed to create .rak-cache/: {e}"))?;
-    let json = serde_json::to_string_pretty(cache)
-        .map_err(|e| format!("serialization error: {e}"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("failed to create .rak-cache/: {e}"))?;
+    let json =
+        serde_json::to_string_pretty(cache).map_err(|e| format!("serialization error: {e}"))?;
     std::fs::write(cache_path(rak_toml_dir), json)
         .map_err(|e| format!("failed to write cache: {e}"))
 }

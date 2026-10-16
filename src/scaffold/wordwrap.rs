@@ -6,7 +6,13 @@
 use unicode_width::UnicodeWidthStr;
 
 pub fn wrap(s: &str, limit: usize) -> String {
-    let mut w = Wrapper { limit, buf: String::new(), space: String::new(), word: String::new(), line_len: 0 };
+    let mut w = Wrapper {
+        limit,
+        buf: String::new(),
+        space: String::new(),
+        word: String::new(),
+        line_len: 0,
+    };
     for c in s.chars() {
         w.write(c);
     }

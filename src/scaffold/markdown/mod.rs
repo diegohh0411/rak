@@ -163,7 +163,9 @@ fn merge_adjacent_text_nodes(d: &mut Dom, n: Id) {
 
 fn rename_fake_spans(d: &mut Dom, n: Id) {
     if d.name(n) == "span"
-        && d.all_nodes(n).into_iter().any(|c| name_is_block_node(d.name(c)))
+        && d.all_nodes(n)
+            .into_iter()
+            .any(|c| name_is_block_node(d.name(c)))
     {
         d.set_data(n, "div");
     }
@@ -255,10 +257,18 @@ fn swap_tags(d: &mut Dom, n: Id, outer: fn(&Dom, Id) -> bool, inner: fn(&Dom, Id
 }
 
 fn first_child_matching(d: &Dom, start: Id, m: fn(&Dom, Id) -> bool, last: bool) -> Option<Id> {
-    let mut node = if last { d.last_child(start) } else { d.first_child(start) };
+    let mut node = if last {
+        d.last_child(start)
+    } else {
+        d.first_child(start)
+    };
     while let Some(n) = node {
         if d.name(n) == "span" {
-            node = if last { d.prev_neighbor_node(n) } else { d.next_neighbor_node(n) };
+            node = if last {
+                d.prev_neighbor_node(n)
+            } else {
+                d.next_neighbor_node(n)
+            };
         } else if m(d, n) {
             return Some(n);
         } else {
@@ -279,7 +289,11 @@ fn neighbor_text_node(d: &Dom, start: Id, forward: bool) -> Option<Id> {
             return Some(n);
         }
         if d.name(n) == "span" {
-            node = if forward { d.next_neighbor_node(n) } else { d.prev_neighbor_node(n) };
+            node = if forward {
+                d.next_neighbor_node(n)
+            } else {
+                d.prev_neighbor_node(n)
+            };
             continue;
         }
         return None;
@@ -416,8 +430,21 @@ fn next_is_list(d: &Dom, start: Id) -> bool {
 fn is_void(name: &str) -> bool {
     matches!(
         name,
-        "area" | "base" | "br" | "col" | "command" | "embed" | "hr" | "img" | "input"
-            | "keygen" | "link" | "meta" | "param" | "track" | "wbr"
+        "area"
+            | "base"
+            | "br"
+            | "col"
+            | "command"
+            | "embed"
+            | "hr"
+            | "img"
+            | "input"
+            | "keygen"
+            | "link"
+            | "meta"
+            | "param"
+            | "track"
+            | "wbr"
     )
 }
 
@@ -445,7 +472,10 @@ fn replace_any_whitespace_with_space(s: &str) -> String {
 fn collapse_next(d: &Dom, prev: Option<Id>, current: Id) -> Id {
     let came_up = prev.is_some_and(|p| d.parent(p) == Some(current));
     if came_up || is_preformatted(d, current) {
-        return d.next(current).or(d.parent(current)).expect("walk stays inside root");
+        return d
+            .next(current)
+            .or(d.parent(current))
+            .expect("walk stays inside root");
     }
     d.first_child(current)
         .or(d.next(current))
@@ -617,7 +647,11 @@ impl Renderer<'_> {
         let d = self.dom;
         let in_li = d.parent(n).is_some_and(|p| d.name(p) == "li");
         if in_li && d.attr_or(n, "type", "") == "checkbox" {
-            w.push_str(if d.attr(n, "checked").is_some() { "[x]" } else { "[ ]" });
+            w.push_str(if d.attr(n, "checked").is_some() {
+                "[x]"
+            } else {
+                "[ ]"
+            });
             let next_starts_with_space = d
                 .next(n)
                 .is_some_and(|x| d.kind(x) == Kind::Text && d.data(x).starts_with(' '));
@@ -716,7 +750,10 @@ impl Renderer<'_> {
         }
         let is_ul = d.data(n) == "ul";
         let start_at: i64 = d.attr_or(n, "start", "1").parse().unwrap_or(1);
-        let width = (start_at + items.len() as i64 - 1).to_string().chars().count();
+        let width = (start_at + items.len() as i64 - 1)
+            .to_string()
+            .chars()
+            .count();
         let prefix = |i: usize| -> String {
             if is_ul {
                 "- ".to_string()
@@ -888,9 +925,17 @@ impl Renderer<'_> {
             if i == 0 {
                 w.push('|');
             }
-            w.push(if align == "left" || align == "center" { ':' } else { '-' });
+            w.push(if align == "left" || align == "center" {
+                ':'
+            } else {
+                '-'
+            });
             w.push('-');
-            w.push(if align == "right" || align == "center" { ':' } else { '-' });
+            w.push(if align == "right" || align == "center" {
+                ':'
+            } else {
+                '-'
+            });
             w.push('|');
         }
         w.push('\n');
@@ -919,8 +964,7 @@ impl Renderer<'_> {
         let problematic_child = d
             .find_first(n, |d, c| {
                 let name = d.name(c);
-                name_is_heading(name)
-                    || matches!(name, "table" | "hr" | "ul" | "ol" | "blockquote")
+                name_is_heading(name) || matches!(name, "table" | "hr" | "ul" | "ol" | "blockquote")
             })
             .is_some();
         if problematic_child {
@@ -928,7 +972,10 @@ impl Renderer<'_> {
         }
         let mut p = d.parent(n);
         while let Some(pid) = p {
-            if matches!(d.name(pid), "a" | "strong" | "b" | "em" | "i" | "del" | "s" | "strike") {
+            if matches!(
+                d.name(pid),
+                "a" | "strong" | "b" | "em" | "i" | "del" | "s" | "strike"
+            ) {
                 return None;
             }
             p = d.parent(pid);
@@ -1064,16 +1111,46 @@ fn assemble_absolute_url(raw: &str) -> String {
 
 fn superscript(c: char) -> char {
     match c {
-        '0' => '\u{2070}', '1' => '\u{00b9}', '2' => '\u{00b2}', '3' => '\u{00b3}',
-        '4' => '\u{2074}', '5' => '\u{2075}', '6' => '\u{2076}', '7' => '\u{2077}',
-        '8' => '\u{2078}', '9' => '\u{2079}', 'a' => '\u{1D43}', 'b' => '\u{1D47}',
-        'c' => '\u{1D9C}', 'd' => '\u{1D48}', 'e' => '\u{1D49}', 'f' => '\u{1DA0}',
-        'g' => '\u{1D4D}', 'h' => '\u{02B0}', 'i' => '\u{2071}', 'j' => '\u{02B2}',
-        'k' => '\u{1D4F}', 'l' => '\u{02E1}', 'm' => '\u{1D50}', 'n' => '\u{207F}',
-        'o' => '\u{1D52}', 'p' => '\u{1D56}', 'q' => '\u{02A0}', 'r' => '\u{02B3}',
-        's' => '\u{02E2}', 't' => '\u{1D57}', 'u' => '\u{1D58}', 'v' => '\u{1D5B}',
-        'w' => '\u{02B7}', 'x' => '\u{02E3}', 'y' => '\u{02B8}', 'z' => '\u{1DBB}',
-        '+' => '\u{207A}', '-' => '\u{207B}', '=' => '\u{207C}', '(' => '\u{207D}',
+        '0' => '\u{2070}',
+        '1' => '\u{00b9}',
+        '2' => '\u{00b2}',
+        '3' => '\u{00b3}',
+        '4' => '\u{2074}',
+        '5' => '\u{2075}',
+        '6' => '\u{2076}',
+        '7' => '\u{2077}',
+        '8' => '\u{2078}',
+        '9' => '\u{2079}',
+        'a' => '\u{1D43}',
+        'b' => '\u{1D47}',
+        'c' => '\u{1D9C}',
+        'd' => '\u{1D48}',
+        'e' => '\u{1D49}',
+        'f' => '\u{1DA0}',
+        'g' => '\u{1D4D}',
+        'h' => '\u{02B0}',
+        'i' => '\u{2071}',
+        'j' => '\u{02B2}',
+        'k' => '\u{1D4F}',
+        'l' => '\u{02E1}',
+        'm' => '\u{1D50}',
+        'n' => '\u{207F}',
+        'o' => '\u{1D52}',
+        'p' => '\u{1D56}',
+        'q' => '\u{02A0}',
+        'r' => '\u{02B3}',
+        's' => '\u{02E2}',
+        't' => '\u{1D57}',
+        'u' => '\u{1D58}',
+        'v' => '\u{1D5B}',
+        'w' => '\u{02B7}',
+        'x' => '\u{02E3}',
+        'y' => '\u{02B8}',
+        'z' => '\u{1DBB}',
+        '+' => '\u{207A}',
+        '-' => '\u{207B}',
+        '=' => '\u{207C}',
+        '(' => '\u{207D}',
         ')' => '\u{207E}',
         other => other,
     }
@@ -1081,14 +1158,38 @@ fn superscript(c: char) -> char {
 
 fn subscript(c: char) -> char {
     match c {
-        '0' => '\u{2080}', '1' => '\u{2081}', '2' => '\u{2082}', '3' => '\u{2083}',
-        '4' => '\u{2084}', '5' => '\u{2085}', '6' => '\u{2086}', '7' => '\u{2087}',
-        '8' => '\u{2088}', '9' => '\u{2089}', 'a' => '\u{2090}', 'e' => '\u{2091}',
-        'h' => '\u{2095}', 'i' => '\u{1d62}', 'j' => '\u{2c7c}', 'k' => '\u{2096}',
-        'l' => '\u{2097}', 'm' => '\u{2098}', 'n' => '\u{2099}', 'o' => '\u{2092}',
-        'p' => '\u{209a}', 'r' => '\u{1d63}', 's' => '\u{209b}', 't' => '\u{209c}',
-        'u' => '\u{1d64}', 'v' => '\u{1d65}', 'x' => '\u{2093}', 'y' => '\u{1d67}',
-        '+' => '\u{208A}', '-' => '\u{208B}', '=' => '\u{208C}', '(' => '\u{208D}',
+        '0' => '\u{2080}',
+        '1' => '\u{2081}',
+        '2' => '\u{2082}',
+        '3' => '\u{2083}',
+        '4' => '\u{2084}',
+        '5' => '\u{2085}',
+        '6' => '\u{2086}',
+        '7' => '\u{2087}',
+        '8' => '\u{2088}',
+        '9' => '\u{2089}',
+        'a' => '\u{2090}',
+        'e' => '\u{2091}',
+        'h' => '\u{2095}',
+        'i' => '\u{1d62}',
+        'j' => '\u{2c7c}',
+        'k' => '\u{2096}',
+        'l' => '\u{2097}',
+        'm' => '\u{2098}',
+        'n' => '\u{2099}',
+        'o' => '\u{2092}',
+        'p' => '\u{209a}',
+        'r' => '\u{1d63}',
+        's' => '\u{209b}',
+        't' => '\u{209c}',
+        'u' => '\u{1d64}',
+        'v' => '\u{1d65}',
+        'x' => '\u{2093}',
+        'y' => '\u{1d67}',
+        '+' => '\u{208A}',
+        '-' => '\u{208B}',
+        '=' => '\u{208C}',
+        '(' => '\u{208D}',
         ')' => '\u{208E}',
         other => other,
     }
@@ -1102,13 +1203,19 @@ mod tests {
     #[test]
     fn subsets_keyword_spacing() {
         let html = r#"<p>return <em>all possible</em> <span data-keyword="subset"><em>subsets</em></span> <em>(the power set)</em>.</p>"#;
-        assert_eq!(html_to_markdown(html), "return *all possible* *subsets* *(the power set)*.");
+        assert_eq!(
+            html_to_markdown(html),
+            "return *all possible* *subsets* *(the power set)*."
+        );
     }
 
     #[test]
     fn inline_code_spacing() {
         let html = r#"<p>return <code>true</code> <em>if</em> <code>s</code> <em>is <strong>valid</strong></em>.</p>"#;
-        assert_eq!(html_to_markdown(html), "return `true` *if* `s` *is **valid***.");
+        assert_eq!(
+            html_to_markdown(html),
+            "return `true` *if* `s` *is **valid***."
+        );
     }
 
     #[test]
@@ -1122,7 +1229,8 @@ mod tests {
 
     #[test]
     fn example_indentation() {
-        let html = "<pre><strong>Input:</strong> tree =\n  1\n / \\\n2   3\n</pre><p>Explanation</p>";
+        let html =
+            "<pre><strong>Input:</strong> tree =\n  1\n / \\\n2   3\n</pre><p>Explanation</p>";
         assert_eq!(
             html_to_markdown(html),
             "```\nInput: tree =\n  1\n / \\\n2   3\n```\n\nExplanation"
@@ -1141,12 +1249,19 @@ mod tests {
     #[test]
     fn task_list_checkboxes() {
         let html = r#"<ul><li><input type="checkbox" checked disabled>Read the input</li><li><input type="checkbox" disabled> Return the result</li></ul>"#;
-        assert_eq!(html_to_markdown(html), "- [x] Read the input\n- [ ] Return the result");
+        assert_eq!(
+            html_to_markdown(html),
+            "- [x] Read the input\n- [ ] Return the result"
+        );
     }
 
     #[test]
     fn entities_and_invisible_characters() {
-        let html = "<p>所有&nbsp;<code>nums</code>&#8203; 的值都满足 <code>0 &lt;= nums[i]</code>。</p>";
-        assert_eq!(html_to_markdown(html), "所有 `nums` 的值都满足 `0 <= nums[i]`。");
+        let html =
+            "<p>所有&nbsp;<code>nums</code>&#8203; 的值都满足 <code>0 &lt;= nums[i]</code>。</p>";
+        assert_eq!(
+            html_to_markdown(html),
+            "所有 `nums` 的值都满足 `0 <= nums[i]`。"
+        );
     }
 }
