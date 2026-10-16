@@ -1,18 +1,22 @@
+mod analyzer;
 mod commands;
 mod config;
 mod credentials;
-mod leetcode;
-mod recorder;
 mod history;
+mod leetcode;
 mod leitner;
+mod recorder;
 mod stt;
-mod analyzer;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use commands::{add, analyze, init, log, login, next, pull, push, record, scrape, transcribe};
 
 #[derive(Parser)]
-#[command(name = "rak", version, about = "Rust Application Killer — internship application workflows")]
+#[command(
+    name = "rak",
+    version,
+    about = "Rust Application Killer — internship application workflows"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -129,11 +133,20 @@ async fn main() {
     let result = match cli.command {
         Command::Add { slug } => add::run(slug),
         Command::Init => init::run(),
-        Command::Log { id, rating, force, date } => log::run(id, rating, force, date),
+        Command::Log {
+            id,
+            rating,
+            force,
+            date,
+        } => log::run(id, rating, force, date),
         Command::Next { count } => next::run(count),
         Command::Scrape { url, output } => scrape::run(url, output).await,
         Command::Record { id, force } => record::run(id, force),
-        Command::Transcribe { id, provider, force } => transcribe::run(id, provider, force),
+        Command::Transcribe {
+            id,
+            provider,
+            force,
+        } => transcribe::run(id, provider, force),
         Command::Analyze {
             id,
             provider,

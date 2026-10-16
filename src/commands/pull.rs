@@ -61,7 +61,10 @@ pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
     let problem_dir = leetcode_dir.join(&folder_name);
 
     if problem_dir.is_dir() {
-        eprintln!("Folder '{}' already exists — skipping scaffold", folder_name);
+        eprintln!(
+            "Folder '{}' already exists — skipping scaffold",
+            folder_name
+        );
         return Ok(());
     }
 
@@ -75,18 +78,15 @@ pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
     let history_path = rak_toml_dir.join("history.yaml");
     let mut hist = crate::history::load(&history_path)?;
     let qid_str = detail.summary.frontend_id.clone();
-    if !hist.problems.contains_key(&qid_str) {
-        hist.problems.insert(
-            qid_str,
-            crate::history::Problem {
-                title: Some(detail.summary.title.clone()),
-                difficulty: Some(detail.summary.difficulty.clone()),
-                box_num: 1,
-                streak_perfect: 0,
-                last_review: chrono::Local::now().date_naive(),
-                attempts: vec![],
-            },
-        );
+    if let std::collections::btree_map::Entry::Vacant(e) = hist.problems.entry(qid_str) {
+        e.insert(crate::history::Problem {
+            title: Some(detail.summary.title.clone()),
+            difficulty: Some(detail.summary.difficulty.clone()),
+            box_num: 1,
+            streak_perfect: 0,
+            last_review: chrono::Local::now().date_naive(),
+            attempts: vec![],
+        });
         crate::history::save(&history_path, &hist)?;
         eprintln!("Initialized in history.yaml");
     }
@@ -128,16 +128,14 @@ fn resolve_by_id(
     rak_toml_dir: &Path,
     refresh: bool,
 ) -> Result<QuestionSummary, String> {
-    if !refresh {
-        if let Some(cached) = cache::load(rak_toml_dir) {
-            if let Some(s) = cached
-                .problems
-                .into_iter()
-                .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == id)
-            {
-                return Ok(s);
-            }
-        }
+    if !refresh
+        && let Some(cached) = cache::load(rak_toml_dir)
+        && let Some(s) = cached
+            .problems
+            .into_iter()
+            .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == id)
+    {
+        return Ok(s);
     }
     let problems = load_or_refresh_cache(client, rak_toml_dir, true)?;
     problems
@@ -156,8 +154,7 @@ fn scaffold_with_content(
     let markdown = if question_html.is_empty() {
         String::new()
     } else {
-        htmd::convert(question_html)
-            .map_err(|e| format!("markdown conversion failed: {e}"))?
+        htmd::convert(question_html).map_err(|e| format!("markdown conversion failed: {e}"))?
     };
 
     std::fs::write(problem_dir.join("question.md"), markdown).map_err(|e| e.to_string())?;

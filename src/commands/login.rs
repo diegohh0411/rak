@@ -67,10 +67,10 @@ pub fn display_name(provider: &str) -> &str {
 }
 
 pub fn expand_tilde(path: &str) -> PathBuf {
-    if let Some(rest) = path.strip_prefix("~/") {
-        if let Some(home) = dirs::home_dir() {
-            return home.join(rest);
-        }
+    if let Some(rest) = path.strip_prefix("~/")
+        && let Some(home) = dirs::home_dir()
+    {
+        return home.join(rest);
     }
     PathBuf::from(path)
 }
@@ -85,12 +85,20 @@ fn copy_service_account(source_path: &str) -> Result<String, String> {
         .map_err(|e| format!("cannot read service account file {}: {e}", src.display()))?;
 
     // Validate required fields
-    let parsed: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("service account is not valid JSON: {e}"))?;
-    if parsed.get("client_email").map(|v| v.is_null()).unwrap_or(true) {
+    let parsed: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("service account is not valid JSON: {e}"))?;
+    if parsed
+        .get("client_email")
+        .map(|v| v.is_null())
+        .unwrap_or(true)
+    {
         return Err("service account JSON is missing 'client_email'".to_string());
     }
-    if parsed.get("private_key").map(|v| v.is_null()).unwrap_or(true) {
+    if parsed
+        .get("private_key")
+        .map(|v| v.is_null())
+        .unwrap_or(true)
+    {
         return Err("service account JSON is missing 'private_key'".to_string());
     }
 
@@ -131,8 +139,8 @@ pub fn run(provider: Option<String>) -> Result<(), String> {
         }
     };
 
-    let fields = provider_fields(&provider)
-        .ok_or_else(|| format!("unknown provider: {provider}"))?;
+    let fields =
+        provider_fields(&provider).ok_or_else(|| format!("unknown provider: {provider}"))?;
 
     // Load existing store and check for overwrite
     let mut store = credentials::load()?;
@@ -175,8 +183,9 @@ pub fn run(provider: Option<String>) -> Result<(), String> {
                 let val: f64 = if raw.is_empty() {
                     60.0
                 } else {
-                    raw.parse::<f64>()
-                        .map_err(|_| format!("'{raw}' is not a valid number for monthly_cap_minutes"))?
+                    raw.parse::<f64>().map_err(|_| {
+                        format!("'{raw}' is not a valid number for monthly_cap_minutes")
+                    })?
                 };
                 creds.insert(field.name.to_string(), serde_json::json!(val));
             }

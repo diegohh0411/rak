@@ -6,8 +6,7 @@ use serde_json::{Value, json};
 use super::credentials::LeetcodeCredentials;
 use super::models::{CheckResult, QuestionDetail, QuestionSummary};
 
-const USER_AGENT: &str =
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+const USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 const BASE_URL: &str = "https://leetcode.com";
 const GRAPHQL_URL: &str = "https://leetcode.com/graphql";
 
@@ -38,10 +37,10 @@ impl LeetcodeClient {
     /// CSRF token to use for requests. Prefers the one from credentials;
     /// falls back to lazily fetching one from the LeetCode homepage.
     fn csrf(&self) -> &str {
-        if let Some(c) = &self.creds {
-            if !c.csrf_token.is_empty() {
-                return &c.csrf_token;
-            }
+        if let Some(c) = &self.creds
+            && !c.csrf_token.is_empty()
+        {
+            return &c.csrf_token;
         }
         self.csrf_fallback.get_or_init(|| {
             self.client
@@ -49,19 +48,16 @@ impl LeetcodeClient {
                 .send()
                 .ok()
                 .and_then(|r| {
-                    r.headers()
-                        .get_all("set-cookie")
-                        .iter()
-                        .find_map(|v| {
-                            let s = v.to_str().ok()?;
-                            let part = s.split(';').next()?;
-                            let (k, val) = part.split_once('=')?;
-                            if k.trim() == "csrftoken" {
-                                Some(val.trim().to_string())
-                            } else {
-                                None
-                            }
-                        })
+                    r.headers().get_all("set-cookie").iter().find_map(|v| {
+                        let s = v.to_str().ok()?;
+                        let part = s.split(';').next()?;
+                        let (k, val) = part.split_once('=')?;
+                        if k.trim() == "csrftoken" {
+                            Some(val.trim().to_string())
+                        } else {
+                            None
+                        }
+                    })
                 })
                 .unwrap_or_default()
         })
@@ -69,10 +65,10 @@ impl LeetcodeClient {
 
     fn cookie_header(&self) -> Option<String> {
         let mut parts = Vec::new();
-        if let Some(c) = &self.creds {
-            if !c.session.is_empty() {
-                parts.push(format!("LEETCODE_SESSION={}", c.session));
-            }
+        if let Some(c) = &self.creds
+            && !c.session.is_empty()
+        {
+            parts.push(format!("LEETCODE_SESSION={}", c.session));
         }
         let csrf = self.csrf();
         if !csrf.is_empty() {

@@ -62,8 +62,8 @@ impl Transcriber for ChirpTranscriber {
 
         check_cap(used_secs, duration_secs, self.monthly_cap_minutes)?;
 
-        let audio_bytes = std::fs::read(audio_path)
-            .map_err(|e| format!("failed to read audio file: {e}"))?;
+        let audio_bytes =
+            std::fs::read(audio_path).map_err(|e| format!("failed to read audio file: {e}"))?;
         let audio_b64 = base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
 
         let client = reqwest::blocking::Client::builder()

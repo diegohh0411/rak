@@ -66,20 +66,19 @@ fn read_solution_with_lang(dir: &Path) -> Result<(String, String), String> {
     if let Ok(rd) = std::fs::read_dir(dir) {
         for entry in rd.flatten() {
             let path = entry.path();
-            if path.is_file() {
-                if let Some(ext) = path.extension() {
-                    let ext_str = format!(".{}", ext.to_string_lossy());
-                    if let Some((_, lang_slug)) =
-                        extensions.iter().find(|(e, _)| *e == ext_str.as_str())
-                    {
-                        if let Ok(metadata) = entry.metadata() {
-                            let mtime = metadata
-                                .modified()
-                                .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-                            if best.is_none() || mtime > best.as_ref().unwrap().0 {
-                                best = Some((mtime, path, lang_slug));
-                            }
-                        }
+            if path.is_file()
+                && let Some(ext) = path.extension()
+            {
+                let ext_str = format!(".{}", ext.to_string_lossy());
+                if let Some((_, lang_slug)) =
+                    extensions.iter().find(|(e, _)| *e == ext_str.as_str())
+                    && let Ok(metadata) = entry.metadata()
+                {
+                    let mtime = metadata
+                        .modified()
+                        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                    if best.is_none() || mtime > best.as_ref().unwrap().0 {
+                        best = Some((mtime, path, lang_slug));
                     }
                 }
             }
@@ -98,12 +97,12 @@ fn read_solution_with_lang(dir: &Path) -> Result<(String, String), String> {
 /// For custom slugs (e.g. "c3ai-strings") use the id string directly.
 fn slug_from_problem_dir(problem_dir: &Path, problem_id: &config::ProblemId) -> String {
     // First try: extract from folder name "NNNN.title-slug"
-    if let Some(folder) = problem_dir.file_name().and_then(|n| n.to_str()) {
-        if let Some(dot) = folder.find('.') {
-            let after_dot = &folder[dot + 1..];
-            if !after_dot.is_empty() {
-                return after_dot.to_string();
-            }
+    if let Some(folder) = problem_dir.file_name().and_then(|n| n.to_str())
+        && let Some(dot) = folder.find('.')
+    {
+        let after_dot = &folder[dot + 1..];
+        if !after_dot.is_empty() {
+            return after_dot.to_string();
         }
     }
     // Fallback: use the raw id (works for slug-form inputs like "two-sum")
@@ -123,10 +122,10 @@ fn display_result(result: &crate::leetcode::models::CheckResult) {
         line.push_str(&format!(" [{correct}/{total} test cases]"));
     }
 
-    if let (Some(rt), Some(mem)) = (&result.status_runtime, &result.status_memory) {
-        if ok {
-            line.push_str(&format!(" ({rt}, {mem})"));
-        }
+    if let (Some(rt), Some(mem)) = (&result.status_runtime, &result.status_memory)
+        && ok
+    {
+        line.push_str(&format!(" ({rt}, {mem})"));
     }
 
     println!("{line}");

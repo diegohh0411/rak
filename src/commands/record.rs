@@ -43,10 +43,8 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
             }
         };
 
-        if transcribed {
-            if let Err(e) = crate::commands::analyze::run(id.clone(), None, true) {
-                eprintln!("Analysis error: {e}");
-            }
+        if transcribed && let Err(e) = crate::commands::analyze::run(id.clone(), None, true) {
+            eprintln!("Analysis error: {e}");
         }
 
         println!();
@@ -70,11 +68,11 @@ fn transcribe_attempt(
         .map(|pc| serde_json::json!({ "model": pc.model }))
         .unwrap_or_else(|| serde_json::json!({}));
 
-    if let Some(creds) = credentials::get_provider(provider_name) {
-        if let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object()) {
-            for (k, v) in creds_obj {
-                obj.insert(k.clone(), v.clone());
-            }
+    if let Some(creds) = credentials::get_provider(provider_name)
+        && let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object())
+    {
+        for (k, v) in creds_obj {
+            obj.insert(k.clone(), v.clone());
         }
     }
 

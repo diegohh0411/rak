@@ -5,7 +5,11 @@ use clap_complete::Shell;
 pub fn run(shell_name: &str) -> Result<(), String> {
     let shell = match shell_name {
         "bash" => Shell::Bash,
-        other => return Err(format!("unsupported shell: {other} (only bash is supported)")),
+        other => {
+            return Err(format!(
+                "unsupported shell: {other} (only bash is supported)"
+            ));
+        }
     };
 
     let mut cmd = crate::build_cli();

@@ -23,28 +23,26 @@ pub fn run(id: String, rating: u8, force: bool, date: Option<String>) -> Result<
     let mut title = None;
     let mut difficulty = None;
 
-    if cfg.is_some() {
-        if let Some(rak_toml_path) = config::find_rak_toml(&config_dir).ok() {
-            if let Some(rak_toml_dir) = rak_toml_path.parent() {
-                if let Some(cached) = cache::load(rak_toml_dir) {
-                    match &problem_id {
-                        config::ProblemId::Leetcode(n) => {
-                            if let Some(p) = cached
-                                .problems
-                                .into_iter()
-                                .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == *n)
-                            {
-                                title = Some(p.title);
-                                difficulty = Some(p.difficulty);
-                            }
-                        }
-                        config::ProblemId::Custom(_) => {
-                            // For custom problems, we don't have a cache lookup yet
-                            // Use the id as title if it's not numeric
-                            title = Some(id.clone());
-                        }
-                    }
+    if cfg.is_some()
+        && let Ok(rak_toml_path) = config::find_rak_toml(&config_dir)
+        && let Some(rak_toml_dir) = rak_toml_path.parent()
+        && let Some(cached) = cache::load(rak_toml_dir)
+    {
+        match &problem_id {
+            config::ProblemId::Leetcode(n) => {
+                if let Some(p) = cached
+                    .problems
+                    .into_iter()
+                    .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == *n)
+                {
+                    title = Some(p.title);
+                    difficulty = Some(p.difficulty);
                 }
+            }
+            config::ProblemId::Custom(_) => {
+                // For custom problems, we don't have a cache lookup yet
+                // Use the id as title if it's not numeric
+                title = Some(id.clone());
             }
         }
     }
@@ -270,7 +268,7 @@ mod tests {
         let path = dir.path().join("history.yaml");
 
         log_to_file(&path, "238", 1, false, APR1(), None, None).unwrap(); // box 1, streak 0
-        log_to_file(&path, "238", 5, true,  APR1(), None, None).unwrap(); // replace → box 1, streak 1
+        log_to_file(&path, "238", 5, true, APR1(), None, None).unwrap(); // replace → box 1, streak 1
         log_to_file(&path, "238", 5, false, APR2(), None, None).unwrap(); // box 2, streak 2
 
         let h = history::load(&path).unwrap();
