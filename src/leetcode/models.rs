@@ -41,16 +41,15 @@ pub struct QuestionDetail {
     pub content: Option<String>,
     #[serde(rename = "codeSnippets")]
     pub code_snippets: Option<Vec<CodeSnippet>>,
-}
-
-impl QuestionDetail {
-    pub fn cpp_snippet(&self) -> Option<&str> {
-        self.code_snippets
-            .as_deref()?
-            .iter()
-            .find(|s| s.lang_slug == "cpp")
-            .map(|s| s.code.as_str())
-    }
+    #[serde(rename = "exampleTestcaseList", default)]
+    pub example_testcase_list: Option<Vec<String>>,
+    #[serde(rename = "exampleTestcases", default)]
+    pub example_testcases: Option<String>,
+    #[serde(rename = "sampleTestCase", default)]
+    pub sample_test_case: Option<String>,
+    /// JSON-encoded function signature metadata.
+    #[serde(rename = "metaData", default)]
+    pub meta_data: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,39 +109,5 @@ mod tests {
     fn folder_name_large_id() {
         let s = make_summary("1234", "some-problem");
         assert_eq!(s.folder_name(), "1234.some-problem");
-    }
-
-    #[test]
-    fn cpp_snippet_finds_lang() {
-        let d = QuestionDetail {
-            summary: make_summary("1", "two-sum"),
-            question_id: "1".to_string(),
-            content: None,
-            code_snippets: Some(vec![
-                CodeSnippet {
-                    lang_slug: "python3".to_string(),
-                    code: "def solve(): pass".to_string(),
-                },
-                CodeSnippet {
-                    lang_slug: "cpp".to_string(),
-                    code: "class Solution {};".to_string(),
-                },
-            ]),
-        };
-        assert_eq!(d.cpp_snippet(), Some("class Solution {};"));
-    }
-
-    #[test]
-    fn cpp_snippet_missing_returns_none() {
-        let d = QuestionDetail {
-            summary: make_summary("1", "two-sum"),
-            question_id: "1".to_string(),
-            content: None,
-            code_snippets: Some(vec![CodeSnippet {
-                lang_slug: "python3".to_string(),
-                code: "def solve(): pass".to_string(),
-            }]),
-        };
-        assert_eq!(d.cpp_snippet(), None);
     }
 }

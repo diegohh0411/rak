@@ -89,6 +89,9 @@ fn read_solution_with_lang(dir: &Path) -> Result<(String, String), String> {
         best.ok_or_else(|| "no solution file found in problem directory".to_string())?;
     let code =
         std::fs::read_to_string(&path).map_err(|e| format!("failed to read solution: {e}"))?;
+    // Files scaffolded by `rak pull` carry a local test harness; submit only the
+    // code between the `@lc code` markers, like leetgo does.
+    let code = crate::scaffold::cpp::extract_solution(&code);
     Ok((code, lang_slug.to_string()))
 }
 

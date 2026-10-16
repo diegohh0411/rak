@@ -6,6 +6,7 @@ mod history;
 mod leetcode;
 mod leitner;
 mod recorder;
+mod scaffold;
 mod stt;
 
 use clap::{CommandFactory, Parser, Subcommand};

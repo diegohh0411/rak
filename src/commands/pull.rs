@@ -68,10 +68,7 @@ pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
         return Ok(());
     }
 
-    let html = detail.content.as_deref().unwrap_or("");
-    let cpp = detail.cpp_snippet().unwrap_or("");
-
-    scaffold_with_content(&problem_dir, html, cpp)?;
+    crate::scaffold::write(&detail, &leetcode_dir, &problem_dir)?;
     eprintln!("Created {}/", folder_name);
 
     // Initialize in history.yaml
@@ -142,58 +139,4 @@ fn resolve_by_id(
         .into_iter()
         .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == id)
         .ok_or_else(|| format!("problem #{id} not found in problem list"))
-}
-
-fn scaffold_with_content(
-    problem_dir: &Path,
-    question_html: &str,
-    cpp_snippet: &str,
-) -> Result<(), String> {
-    std::fs::create_dir_all(problem_dir).map_err(|e| e.to_string())?;
-
-    let markdown = if question_html.is_empty() {
-        String::new()
-    } else {
-        htmd::convert(question_html).map_err(|e| format!("markdown conversion failed: {e}"))?
-    };
-
-    std::fs::write(problem_dir.join("question.md"), markdown).map_err(|e| e.to_string())?;
-    std::fs::write(problem_dir.join("solution.cpp"), cpp_snippet).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    fn scaffold_with_content_writes_files() {
-        let dir = tempfile::tempdir().unwrap();
-        let pd = dir.path().join("0001.two-sum");
-        scaffold_with_content(&pd, "<p>Find two numbers</p>", "class Solution {};").unwrap();
-        let md = fs::read_to_string(pd.join("question.md")).unwrap();
-        assert!(md.contains("Find two numbers"));
-        let cpp = fs::read_to_string(pd.join("solution.cpp")).unwrap();
-        assert_eq!(cpp, "class Solution {};");
-    }
-
-    #[test]
-    fn scaffold_with_content_empty_html() {
-        let dir = tempfile::tempdir().unwrap();
-        let pd = dir.path().join("0001.two-sum");
-        scaffold_with_content(&pd, "", "").unwrap();
-        assert_eq!(fs::read_to_string(pd.join("question.md")).unwrap(), "");
-        assert_eq!(fs::read_to_string(pd.join("solution.cpp")).unwrap(), "");
-    }
-
-    #[test]
-    fn scaffold_with_content_idempotent_on_existing_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let pd = dir.path().join("0001.two-sum");
-        fs::create_dir_all(&pd).unwrap();
-        scaffold_with_content(&pd, "", "int main() {}").unwrap();
-        let cpp = fs::read_to_string(pd.join("solution.cpp")).unwrap();
-        assert_eq!(cpp, "int main() {}");
-    }
 }
