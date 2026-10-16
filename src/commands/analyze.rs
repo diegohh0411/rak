@@ -364,10 +364,15 @@ mod tests {
         fs::create_dir_all(&p1).unwrap();
         fs::create_dir_all(&p2).unwrap();
         fs::write(p1.join("analysis.md"), "Analysis of two sum.").unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(50));
         fs::write(p2.join("analysis.md"), "Analysis of trapping rain water.").unwrap();
 
+        // Explicit review dates so ordering doesn't depend on file mtimes.
         let history_path = tmp.path().join("history.yaml");
+        fs::write(
+            &history_path,
+            "problems:\n  \"1\":\n    box_num: 1\n    streak_perfect: 0\n    last_review: 2026-01-01\n    attempts: []\n  \"42\":\n    box_num: 1\n    streak_perfect: 0\n    last_review: 2026-01-02\n    attempts: []\n",
+        )
+        .unwrap();
         rebuild_master(&lc, &history_path, tmp.path()).unwrap();
 
         let master = fs::read_to_string(tmp.path().join("analyses-master.md")).unwrap();
