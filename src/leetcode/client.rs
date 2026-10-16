@@ -241,6 +241,7 @@ impl LeetcodeClient {
                 difficulty
                 topicTags { slug name }
                 status
+                isPaidOnly
                 content
                 codeSnippets { langSlug code }
                 exampleTestcaseList

@@ -21,6 +21,12 @@ pub struct Files {
 
 /// Render all problem files in memory.
 pub fn render(detail: &QuestionDetail) -> Result<Files, String> {
+    if detail.is_paid_only && detail.code_snippets.is_none() {
+        return Err(format!(
+            "question {:?} is paid only; you need to subscribe to LeetCode Premium",
+            detail.summary.title_slug
+        ));
+    }
     let q = Question::new(detail);
     let snippet = q.code_snippet("cpp").ok_or_else(|| {
         format!(

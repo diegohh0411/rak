@@ -37,6 +37,9 @@ pub struct QuestionDetail {
     /// Internal LeetCode question ID (used for submission, distinct from frontend ID).
     #[serde(rename = "questionId", default)]
     pub question_id: String,
+    /// True for Premium-only problems; content and snippets are withheld without a subscription.
+    #[serde(rename = "isPaidOnly", default)]
+    pub is_paid_only: bool,
     /// Raw HTML from LeetCode; convert to Markdown before writing.
     pub content: Option<String>,
     #[serde(rename = "codeSnippets")]
