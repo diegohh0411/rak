@@ -100,6 +100,9 @@ enum Command {
         /// Force-refresh the problem list cache
         #[arg(long, short)]
         refresh: bool,
+        /// Re-scaffold even if the problem folder already exists (overwrites solution.cpp, testcases.txt, question.md)
+        #[arg(long, short)]
+        force: bool,
     },
     /// Submit solution to LeetCode and display the result
     Push {
@@ -153,7 +156,11 @@ async fn main() {
             provider,
             force,
         } => analyze::run(id, provider, force),
-        Command::Pull { qid, refresh } => pull::run(qid, refresh),
+        Command::Pull {
+            qid,
+            refresh,
+            force,
+        } => pull::run(qid, refresh, force),
         Command::Push { id } => push::run(id),
         Command::Login { provider } => login::run(provider),
         Command::Completions { shell } => commands::completions::run(&shell),

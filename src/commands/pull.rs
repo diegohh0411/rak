@@ -10,7 +10,7 @@ use crate::leetcode::models::{ProblemCache, QuestionSummary};
 
 const CACHE_MAX_AGE_DAYS: i64 = 7;
 
-pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
+pub fn run(qid: Option<String>, refresh: bool, force: bool) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
     let creds = credentials::resolve().ok();
@@ -61,11 +61,14 @@ pub fn run(qid: Option<String>, refresh: bool) -> Result<(), String> {
     let problem_dir = leetcode_dir.join(&folder_name);
 
     if problem_dir.is_dir() {
-        eprintln!(
-            "Folder '{}' already exists — skipping scaffold",
-            folder_name
-        );
-        return Ok(());
+        if !force {
+            eprintln!(
+                "Folder '{}' already exists — skipping scaffold (use --force to overwrite)",
+                folder_name
+            );
+            return Ok(());
+        }
+        eprintln!("Folder '{}' already exists — overwriting", folder_name);
     }
 
     crate::scaffold::write(&detail, &leetcode_dir, &problem_dir)?;
