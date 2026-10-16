@@ -91,7 +91,6 @@ pub struct LeetcodeConfig {
     pub session: String,
 }
 
-
 #[derive(Debug)]
 pub enum ProblemId {
     Leetcode(u32),
@@ -246,11 +245,7 @@ model = "whisper-1"
         let tmp = tempfile::tempdir().unwrap();
         let lc = tmp.path().join("leetcode");
         fs::create_dir_all(lc.join("0001.two-sum")).unwrap();
-        fs::write(
-            tmp.path().join("rak.toml"),
-            format!("leetcode_dir = \"leetcode\""),
-        )
-        .unwrap();
+        fs::write(tmp.path().join("rak.toml"), "leetcode_dir = \"leetcode\"").unwrap();
 
         let config = RakConfig {
             leetcode_dir: "leetcode".to_string(),
@@ -270,7 +265,8 @@ model = "whisper-1"
             leetcode_dir: "leetcode".to_string(),
             ..Default::default()
         };
-        let err = resolve_problem_folder(tmp.path(), &config, &ProblemId::Leetcode(9999)).unwrap_err();
+        let err =
+            resolve_problem_folder(tmp.path(), &config, &ProblemId::Leetcode(9999)).unwrap_err();
         assert!(err.contains("9999"), "error should mention id: {err}");
     }
 
@@ -297,11 +293,7 @@ model = "whisper-1"
         let tmp = tempfile::tempdir().unwrap();
         let lc = tmp.path().join("leetcode");
         fs::create_dir_all(lc.join("c3ai-strings")).unwrap();
-        fs::write(
-            tmp.path().join("rak.toml"),
-            "leetcode_dir = \"leetcode\"",
-        )
-        .unwrap();
+        fs::write(tmp.path().join("rak.toml"), "leetcode_dir = \"leetcode\"").unwrap();
 
         let config = RakConfig {
             leetcode_dir: "leetcode".to_string(),
@@ -324,7 +316,10 @@ model = "whisper-1"
         };
         let id = ProblemId::Custom("missing-slug".to_string());
         let err = resolve_problem_folder(tmp.path(), &config, &id).unwrap_err();
-        assert!(err.contains("missing-slug"), "error should mention slug: {err}");
+        assert!(
+            err.contains("missing-slug"),
+            "error should mention slug: {err}"
+        );
     }
 
     #[test]

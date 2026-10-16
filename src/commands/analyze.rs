@@ -39,11 +39,11 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
         .map(|pc| serde_json::json!({ "model": pc.model }))
         .unwrap_or_else(|| serde_json::json!({}));
 
-    if let Some(creds) = credentials::get_provider(provider_name) {
-        if let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object()) {
-            for (k, v) in creds_obj {
-                obj.insert(k.clone(), v.clone());
-            }
+    if let Some(creds) = credentials::get_provider(provider_name)
+        && let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object())
+    {
+        for (k, v) in creds_obj {
+            obj.insert(k.clone(), v.clone());
         }
     }
 
@@ -137,31 +137,30 @@ fn rebuild_master(
 
         let key = folder_to_history_key(&folder_name);
 
-        if let Some(problem) = hist.problems.get_mut(&key) {
-            if problem.title.is_none() || problem.difficulty.is_none() {
-                if let Some(ref cache) = cache {
-                    if let Ok(n) = key.parse::<u32>() {
-                        if let Some(p) = cache
-                            .problems
-                            .iter()
-                            .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == n)
-                        {
-                            if problem.title.is_none() {
-                                problem.title = Some(p.title.clone());
-                                history_dirty = true;
-                            }
-                            if problem.difficulty.is_none() {
-                                problem.difficulty = Some(p.difficulty.clone());
-                                history_dirty = true;
-                            }
-                        }
-                    } else {
-                        // Custom problem (slug match)
-                        if problem.title.is_none() {
-                            problem.title = Some(key.clone());
-                            history_dirty = true;
-                        }
+        if let Some(problem) = hist.problems.get_mut(&key)
+            && (problem.title.is_none() || problem.difficulty.is_none())
+            && let Some(ref cache) = cache
+        {
+            if let Ok(n) = key.parse::<u32>() {
+                if let Some(p) = cache
+                    .problems
+                    .iter()
+                    .find(|p| p.frontend_id.parse::<u32>().unwrap_or(0) == n)
+                {
+                    if problem.title.is_none() {
+                        problem.title = Some(p.title.clone());
+                        history_dirty = true;
                     }
+                    if problem.difficulty.is_none() {
+                        problem.difficulty = Some(p.difficulty.clone());
+                        history_dirty = true;
+                    }
+                }
+            } else {
+                // Custom problem (slug match)
+                if problem.title.is_none() {
+                    problem.title = Some(key.clone());
+                    history_dirty = true;
                 }
             }
         }
@@ -193,7 +192,7 @@ fn rebuild_master(
     }
 
     // Most recent first
-    entries.sort_by(|a, b| b.last_date.cmp(&a.last_date));
+    entries.sort_by_key(|a| std::cmp::Reverse(a.last_date));
 
     let mut parts: Vec<String> = Vec::with_capacity(entries.len() + 1);
     parts.push(MASTER_INTRO.to_string());
@@ -221,10 +220,10 @@ fn rebuild_master(
 fn folder_to_history_key(folder_name: &str) -> String {
     // "0001.two-sum" → "1"  (matches the key used by `rak log`)
     // "c3ai-strings" → "c3ai-strings"
-    if let Some(dot_pos) = folder_name.find('.') {
-        if let Ok(n) = folder_name[..dot_pos].parse::<u32>() {
-            return n.to_string();
-        }
+    if let Some(dot_pos) = folder_name.find('.')
+        && let Ok(n) = folder_name[..dot_pos].parse::<u32>()
+    {
+        return n.to_string();
     }
     folder_name.to_string()
 }
@@ -271,18 +270,18 @@ pub(crate) fn read_latest_solution(dir: &Path) -> Result<String, String> {
     if let Ok(rd) = fs::read_dir(dir) {
         for entry in rd.flatten() {
             let path = entry.path();
-            if path.is_file() {
-                if let Some(ext) = path.extension() {
-                    let ext_str = format!(".{}", ext.to_string_lossy());
-                    if extensions.contains(&ext_str.as_str()) {
-                        if let Ok(metadata) = entry.metadata() {
-                            let mod_time = metadata
-                                .modified()
-                                .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-                            if best.is_none() || mod_time > best.as_ref().unwrap().0 {
-                                best = Some((mod_time, path));
-                            }
-                        }
+            if path.is_file()
+                && let Some(ext) = path.extension()
+            {
+                let ext_str = format!(".{}", ext.to_string_lossy());
+                if extensions.contains(&ext_str.as_str())
+                    && let Ok(metadata) = entry.metadata()
+                {
+                    let mod_time = metadata
+                        .modified()
+                        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                    if best.is_none() || mod_time > best.as_ref().unwrap().0 {
+                        best = Some((mod_time, path));
                     }
                 }
             }

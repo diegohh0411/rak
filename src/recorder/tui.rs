@@ -4,13 +4,13 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
+use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
-use ratatui::Terminal;
 
 use super::fft;
 use super::{
@@ -38,11 +38,7 @@ pub fn num_bands_for_width(w: usize) -> usize {
         return 16;
     }
     let n = w.div_ceil(2);
-    if n < 4 {
-        4
-    } else {
-        n
-    }
+    if n < 4 { 4 } else { n }
 }
 
 pub fn format_duration(d: Duration) -> String {
@@ -92,23 +88,25 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
     let bands_clone = Arc::clone(&shared_bands);
     let pipe: Arc<Mutex<Box<dyn Read + Send>>> = Arc::new(Mutex::new(recording.pipe));
 
-    let pipe_reader = std::thread::spawn(move || loop {
-        let nb = {
-            let bands = bands_clone.lock().unwrap();
-            bands.len()
-        };
-        let mut pipe_guard = match pipe.lock() {
-            Ok(g) => g,
-            Err(_) => return,
-        };
-        let result = read_pcm_chunk(&mut pipe_guard, nb);
-        drop(pipe_guard);
-        match result {
-            Some(bands) => {
-                let mut shared = bands_clone.lock().unwrap();
-                *shared = bands;
+    let pipe_reader = std::thread::spawn(move || {
+        loop {
+            let nb = {
+                let bands = bands_clone.lock().unwrap();
+                bands.len()
+            };
+            let mut pipe_guard = match pipe.lock() {
+                Ok(g) => g,
+                Err(_) => return,
+            };
+            let result = read_pcm_chunk(&mut pipe_guard, nb);
+            drop(pipe_guard);
+            match result {
+                Some(bands) => {
+                    let mut shared = bands_clone.lock().unwrap();
+                    *shared = bands;
+                }
+                None => return,
             }
-            None => return,
         }
     });
 

@@ -80,23 +80,26 @@ mod tests {
         let path = dir.path().join("history.yaml");
 
         let mut history = History::new();
-        history.problems.insert("532".to_string(), Problem {
-            title: None,
-            difficulty: None,
-            box_num: 2,
-            streak_perfect: 1,
-            last_review: NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
-            attempts: vec![
-                Attempt {
-                    date: NaiveDate::from_ymd_opt(2026, 4, 4).unwrap(),
-                    rating: 3,
-                },
-                Attempt {
-                    date: NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
-                    rating: 5,
-                },
-            ],
-        });
+        history.problems.insert(
+            "532".to_string(),
+            Problem {
+                title: None,
+                difficulty: None,
+                box_num: 2,
+                streak_perfect: 1,
+                last_review: NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
+                attempts: vec![
+                    Attempt {
+                        date: NaiveDate::from_ymd_opt(2026, 4, 4).unwrap(),
+                        rating: 3,
+                    },
+                    Attempt {
+                        date: NaiveDate::from_ymd_opt(2026, 4, 6).unwrap(),
+                        rating: 5,
+                    },
+                ],
+            },
+        );
 
         save(&path, &history).unwrap();
         let loaded = load(&path).unwrap();
@@ -125,7 +128,10 @@ mod tests {
             box_num: 1,
             streak_perfect: 0,
             last_review: today,
-            attempts: vec![Attempt { date: today, rating: 1 }],
+            attempts: vec![Attempt {
+                date: today,
+                rating: 1,
+            }],
         };
         // Box 1 interval = 1 day, so due tomorrow, NOT today
         assert!(!problem.is_due(today));

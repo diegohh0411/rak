@@ -32,11 +32,7 @@ pub fn next_streak(current_streak: u8, rating: u8) -> u8 {
 /// If streak reaches 3, the box jumps to 5 (mastery).
 /// Returns the final box after applying mastery bonus.
 pub fn apply_mastery(new_box: u8, new_streak: u8) -> u8 {
-    if new_streak >= 3 {
-        5
-    } else {
-        new_box
-    }
+    if new_streak >= 3 { 5 } else { new_box }
 }
 
 /// Get the review interval in days for a given box (1-5).

@@ -22,8 +22,7 @@ pub fn run_pull_tui(problems: &[QuestionSummary]) -> Result<Option<QuestionSumma
         .map_err(|e| format!("alternate screen: {e}"))?;
 
     let backend = CrosstermBackend::new(std::io::stdout());
-    let mut terminal =
-        Terminal::new(backend).map_err(|e| format!("terminal init: {e}"))?;
+    let mut terminal = Terminal::new(backend).map_err(|e| format!("terminal init: {e}"))?;
     terminal.clear().map_err(|e| format!("clear: {e}"))?;
 
     let result = run_loop(&mut terminal, problems);
@@ -93,8 +92,7 @@ fn run_loop(
                     })
                     .collect();
 
-                let count_label =
-                    format!(" Problems ({}/{}) ", visible.len(), problems.len());
+                let count_label = format!(" Problems ({}/{}) ", visible.len(), problems.len());
                 let list_widget = List::new(items)
                     .block(Block::default().borders(Borders::ALL).title(count_label))
                     .highlight_style(
@@ -114,9 +112,7 @@ fn run_loop(
             })
             .map_err(|e| format!("draw error: {e}"))?;
 
-        if !event::poll(Duration::from_millis(TICK_MS))
-            .map_err(|e| format!("poll: {e}"))?
-        {
+        if !event::poll(Duration::from_millis(TICK_MS)).map_err(|e| format!("poll: {e}"))? {
             continue;
         }
 
@@ -172,7 +168,9 @@ fn refilter(
             p.title.to_lowercase().contains(&q)
                 || p.frontend_id.starts_with(filter)
                 || p.title_slug.contains(&q)
-                || p.topic_tags.iter().any(|t| t.name.to_lowercase().contains(&q))
+                || p.topic_tags
+                    .iter()
+                    .any(|t| t.name.to_lowercase().contains(&q))
         })
         .map(|(i, _)| i)
         .collect();

@@ -43,11 +43,12 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
                 .map(|pc| serde_json::json!({ "model": pc.model }))
                 .unwrap_or_else(|| serde_json::json!({}));
 
-            if let Some(creds) = credentials::get_provider(provider_name) {
-                if let (Some(obj), Some(creds_obj)) = (json_config.as_object_mut(), creds.as_object()) {
-                    for (k, v) in creds_obj {
-                        obj.insert(k.clone(), v.clone());
-                    }
+            if let Some(creds) = credentials::get_provider(provider_name)
+                && let (Some(obj), Some(creds_obj)) =
+                    (json_config.as_object_mut(), creds.as_object())
+            {
+                for (k, v) in creds_obj {
+                    obj.insert(k.clone(), v.clone());
                 }
             }
 
@@ -59,10 +60,10 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
                     std::fs::write(&md_path, &text).map_err(|e| e.to_string())?;
                     eprintln!("✓ Transcribed → {md_name}");
 
-                    if prompt_yes_no("Analyze?", true) {
-                        if let Err(e) = crate::commands::analyze::run(id, None, true) {
-                            eprintln!("Analysis error: {e}");
-                        }
+                    if prompt_yes_no("Analyze?", true)
+                        && let Err(e) = crate::commands::analyze::run(id, None, true)
+                    {
+                        eprintln!("Analysis error: {e}");
                     }
                 }
                 Ok(_) => eprintln!("Warning: transcript is empty, skipping"),

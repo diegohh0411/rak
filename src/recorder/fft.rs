@@ -115,8 +115,8 @@ mod tests {
         let samples = vec![1.0f64; 2048];
         let mags = magnitude_spectrum(&samples);
         assert!(mags[0] > 100.0);
-        for i in 1..mags.len() {
-            assert!(mags[i] < 1.0);
+        for m in mags.iter().skip(1) {
+            assert!(*m < 1.0);
         }
     }
 
