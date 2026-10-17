@@ -14,7 +14,8 @@ use ratatui::widgets::Paragraph;
 
 use super::fft;
 use super::{
-    cancel_recording, detect_platform, pause_recording, resume_recording, start_recording,
+    cancel_recording, detect_platform, finalize_segments, list_input_devices, next_device,
+    pause_recording, remove_segments, resume_recording, segment_path, start_recording,
     stop_recording,
 };
 
@@ -79,36 +80,42 @@ fn read_pcm_chunk(pipe: &mut Box<dyn Read + Send>, num_bands: usize) -> Option<V
     Some(fft::analyze_bands(&samples, num_bands))
 }
 
-pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<String>, String> {
-    let mut recording = start_recording(output_path)?;
-
-    let can_pause = detect_platform().can_pause;
-    let num_bands = num_bands_for_width(80);
-    let shared_bands: Arc<Mutex<Vec<f64>>> = Arc::new(Mutex::new(vec![0.0; num_bands]));
-    let bands_clone = Arc::clone(&shared_bands);
-    let pipe: Arc<Mutex<Box<dyn Read + Send>>> = Arc::new(Mutex::new(recording.pipe));
-
-    let pipe_reader = std::thread::spawn(move || {
+fn spawn_reader(mut pipe: Box<dyn Read + Send>, bands: Arc<Mutex<Vec<f64>>>) {
+    std::thread::spawn(move || {
         loop {
-            let nb = {
-                let bands = bands_clone.lock().unwrap();
-                bands.len()
-            };
-            let mut pipe_guard = match pipe.lock() {
-                Ok(g) => g,
-                Err(_) => return,
-            };
-            let result = read_pcm_chunk(&mut pipe_guard, nb);
-            drop(pipe_guard);
-            match result {
-                Some(bands) => {
-                    let mut shared = bands_clone.lock().unwrap();
-                    *shared = bands;
-                }
+            let nb = bands.lock().unwrap().len();
+            match read_pcm_chunk(&mut pipe, nb) {
+                Some(b) => *bands.lock().unwrap() = b,
                 None => return,
             }
         }
     });
+}
+
+pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<String>, String> {
+    let pc = detect_platform();
+    let devices = list_input_devices();
+    let mut device_id = if pc.input_device.is_empty() {
+        devices
+            .first()
+            .map_or("audio".to_string(), |d| d.id.clone())
+    } else {
+        pc.input_device.to_string()
+    };
+    let mut device_name = devices
+        .iter()
+        .find(|d| d.id == device_id)
+        .map_or(device_id.clone(), |d| d.name.clone());
+
+    let mut segments = 1usize;
+    let rec = start_recording(&segment_path(output_path, 0), &device_id)?;
+    let mut child = rec.child;
+
+    let can_pause = pc.can_pause;
+    let num_bands = num_bands_for_width(80);
+    let shared_bands: Arc<Mutex<Vec<f64>>> = Arc::new(Mutex::new(vec![0.0; num_bands]));
+    spawn_reader(rec.pipe, Arc::clone(&shared_bands));
+    let mut device_lost = false;
 
     let backend = CrosstermBackend::new(std::io::stdout());
     let mut terminal = Terminal::new(backend).map_err(|e| format!("terminal init: {e}"))?;
@@ -128,13 +135,28 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
         {
             match (key.code, key.modifiers) {
                 (KeyCode::Char('q'), _) | (KeyCode::Enter, _) => {
+                    let was_paused = status == Status::Paused;
                     status = Status::Stopping;
                     let _ = terminal.draw(|frame| {
                         let area = frame.area();
-                        frame.render_widget(view(&status, elapsed, filename, &[], width), area);
+                        frame.render_widget(
+                            view(
+                                &status,
+                                elapsed,
+                                filename,
+                                &[],
+                                width,
+                                &device_name,
+                                device_lost,
+                            ),
+                            area,
+                        );
                     });
-                    drop(pipe_reader);
-                    let stop_result = stop_recording(&mut recording.child);
+                    if can_pause && was_paused {
+                        let _ = resume_recording(&mut child);
+                    }
+                    let stop_result = stop_recording(&mut child)
+                        .and_then(|()| finalize_segments(output_path, segments));
                     if let Err(e) = stop_result {
                         status = Status::Error(e);
                     } else {
@@ -142,7 +164,18 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
                     }
                     let _ = terminal.draw(|frame| {
                         let area = frame.area();
-                        frame.render_widget(view(&status, elapsed, filename, &[], width), area);
+                        frame.render_widget(
+                            view(
+                                &status,
+                                elapsed,
+                                filename,
+                                &[],
+                                width,
+                                &device_name,
+                                device_lost,
+                            ),
+                            area,
+                        );
                     });
                     break 'outer match status {
                         Status::Done => Ok(Some(output_path.to_string())),
@@ -152,20 +185,56 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
                 }
                 (KeyCode::Char(' '), _) => {
                     if can_pause && status == Status::Recording {
-                        let _ = pause_recording(&mut recording.child);
+                        let _ = pause_recording(&mut child);
                         status = Status::Paused;
                     } else if can_pause && status == Status::Paused {
-                        let _ = resume_recording(&mut recording.child);
+                        let _ = resume_recording(&mut child);
                         status = Status::Recording;
                         start = Instant::now() - elapsed;
                     }
                 }
+                (KeyCode::Char('d'), _) | (KeyCode::Tab, _) => {
+                    let paused = status == Status::Paused;
+                    let devices = list_input_devices();
+                    if let Some(next) = next_device(&devices, &device_id).cloned() {
+                        if paused {
+                            let _ = resume_recording(&mut child);
+                        }
+                        let _ = stop_recording(&mut child);
+                        match start_recording(&segment_path(output_path, segments), &next.id) {
+                            Ok(new) => {
+                                child = new.child;
+                                spawn_reader(new.pipe, Arc::clone(&shared_bands));
+                                segments += 1;
+                                device_lost = false;
+                                if paused {
+                                    let _ = pause_recording(&mut child);
+                                }
+                            }
+                            Err(_) => device_lost = true,
+                        }
+                        device_id = next.id;
+                        device_name = next.name;
+                    }
+                }
                 (KeyCode::Char('c'), KeyModifiers::CONTROL) | (KeyCode::Esc, _) => {
                     status = Status::Cancelled;
-                    cancel_recording(&mut recording.child, output_path);
+                    cancel_recording(&mut child, &segment_path(output_path, segments - 1));
+                    remove_segments(output_path, segments);
                     let _ = terminal.draw(|frame| {
                         let area = frame.area();
-                        frame.render_widget(view(&status, elapsed, filename, &[], width), area);
+                        frame.render_widget(
+                            view(
+                                &status,
+                                elapsed,
+                                filename,
+                                &[],
+                                width,
+                                &device_name,
+                                device_lost,
+                            ),
+                            area,
+                        );
                     });
                     break 'outer Ok(None);
                 }
@@ -179,12 +248,26 @@ pub fn run_recorder_tui(output_path: &str, filename: &str) -> Result<Option<Stri
 
         if status == Status::Recording {
             elapsed = start.elapsed();
+            if matches!(child.try_wait(), Ok(Some(_))) {
+                device_lost = true;
+            }
         }
 
         let bands = shared_bands.lock().unwrap().clone();
         let _ = terminal.draw(|frame| {
             let area = frame.area();
-            frame.render_widget(view(&status, elapsed, filename, &bands, width), area);
+            frame.render_widget(
+                view(
+                    &status,
+                    elapsed,
+                    filename,
+                    &bands,
+                    width,
+                    &device_name,
+                    device_lost,
+                ),
+                area,
+            );
         });
     };
 
@@ -200,6 +283,8 @@ fn view(
     filename: &str,
     bands: &[f64],
     width: usize,
+    device_name: &str,
+    device_lost: bool,
 ) -> Paragraph<'static> {
     match status {
         Status::Stopping => {
@@ -234,11 +319,15 @@ fn view(
     }
 
     let (indicator_char, indicator_color, controls) = match status {
-        Status::Recording => ("⏺", Color::Red, "[space] pause  [q] stop  [ctrl+c] cancel"),
+        Status::Recording => (
+            "⏺",
+            Color::Red,
+            "[space] pause  [d] switch input  [q] stop  [ctrl+c] cancel",
+        ),
         Status::Paused => (
             "⏸",
             Color::Yellow,
-            "[space] resume  [q] stop  [ctrl+c] cancel",
+            "[space] resume  [d] switch input  [q] stop  [ctrl+c] cancel",
         ),
         _ => unreachable!(),
     };
@@ -263,12 +352,21 @@ fn view(
 
     let eq_line = Line::from(Span::raw(eq));
 
+    let input_line = if device_lost {
+        Line::from(Span::styled(
+            format!("Input: {device_name} — not producing audio, press [d] to switch"),
+            Style::default().fg(Color::Red),
+        ))
+    } else {
+        Line::from(Span::raw(format!("Input: {device_name}")))
+    };
+
     let controls_line = Line::from(Span::styled(
         controls,
         Style::default().add_modifier(Modifier::DIM),
     ));
 
-    Paragraph::new(vec![header, eq_line, controls_line])
+    Paragraph::new(vec![header, input_line, eq_line, controls_line])
 }
 
 #[cfg(test)]
