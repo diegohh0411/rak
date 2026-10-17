@@ -59,7 +59,7 @@ model = "~google/gemini-flash-latest"
 # session = ""   # or set LEETCODE_SESSION env var
 
 [test]
-timeout_ms = 2000   # per test case
+timeout_ms = 1000   # per test case
 
 [test.cpp]
 # compiler = "c++"   # defaults to $CXX, then c++
