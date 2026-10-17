@@ -6,7 +6,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use super::process;
-use super::runtime::{self, BuildCtx, BuildError, Executable};
+use super::runtime::{self, BuildCtx, BuildError, Executable, Profile};
 use super::verdict::{self, Verdict};
 use crate::leetcode::models::QuestionDetail;
 use crate::scaffold::{self, testcases};
@@ -104,7 +104,7 @@ fn scaffold_two_sum() -> Fixture {
     }
 }
 
-fn build(f: &Fixture, code: &str) -> Result<Executable, BuildError> {
+fn build_profile(f: &Fixture, code: &str, profile: Profile) -> Result<Executable, BuildError> {
     let generated = std::fs::read_to_string(f.problem.join("solution.cpp")).unwrap();
     std::fs::write(
         f.problem.join("solution.cpp"),
@@ -122,7 +122,12 @@ fn build(f: &Fixture, code: &str) -> Result<Executable, BuildError> {
         problem_dir: &f.problem,
         workspace_dir: &f.workspace,
         build_dir: &f.build,
+        profile,
     })
+}
+
+fn build(f: &Fixture, code: &str) -> Result<Executable, BuildError> {
+    build_profile(f, code, Profile::Release)
 }
 
 fn verdicts(f: &Fixture, exe: &Executable, timeout: Duration) -> Vec<Verdict> {
@@ -187,4 +192,66 @@ fn cpp_end_to_end() {
         Err(BuildError::Compile(diag)) => assert!(diag.contains("solution.cpp"), "{diag}"),
         other => panic!("expected a compile error, got {other:?}"),
     }
+}
+
+const OUT_OF_BOUNDS: &str = "class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        vector<int> v(2);
+        return {v[nums.size() + 3], 0};
+    }
+};";
+
+const OVERFLOW: &str = "class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        int x = INT_MAX - 1;
+        x += (int)nums.size();
+        return {x, 0};
+    }
+};";
+
+/// Whether the compiler can build and link with ASan + UBSan here.
+fn sanitizers_available() -> bool {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("t.cpp"), "int main() {}").unwrap();
+    let cxx = std::env::var("CXX").unwrap_or_else(|_| "c++".into());
+    Command::new(cxx)
+        .current_dir(dir.path())
+        .args(["-fsanitize=address,undefined", "t.cpp", "-o", "t"])
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+fn first_reason(f: &Fixture, exe: &Executable) -> String {
+    let content = std::fs::read_to_string(f.problem.join("testcases.txt")).unwrap();
+    let case = &testcases::parse(&content).unwrap()[0];
+    let (exec, _) = process::run(exe, &f.problem, &case.input, Duration::from_secs(20)).unwrap();
+    match verdict::judge(case.expected.as_deref(), &exec).verdict {
+        Verdict::RuntimeError { reason } => reason,
+        other => panic!("expected a runtime error, got {other:?}\n{}", exec.stderr),
+    }
+}
+
+#[test]
+fn cpp_debug_profile_reports_sanitizer_errors() {
+    if !compiler_available() || !sanitizers_available() {
+        eprintln!("skipping: no C++ compiler with sanitizers");
+        return;
+    }
+    let f = scaffold_two_sum();
+
+    let exe = build_profile(&f, OUT_OF_BOUNDS, Profile::Debug).unwrap();
+    assert!(exe.program.ends_with("solution-debug"));
+    assert_eq!(
+        first_reason(&f, &exe),
+        "AddressSanitizer: heap-buffer-overflow"
+    );
+
+    let exe = build_profile(&f, OVERFLOW, Profile::Debug).unwrap();
+    let reason = first_reason(&f, &exe);
+    assert!(
+        reason.contains("runtime error: signed integer overflow"),
+        "{reason}"
+    );
 }

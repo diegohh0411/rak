@@ -67,7 +67,7 @@ pub fn judge(expected: Option<&str>, exec: &Execution) -> CaseResult {
     let verdict = match (exec.termination, parsed) {
         (Termination::TimedOut, _) => Verdict::TimeLimitExceeded,
         (Termination::Signaled(sig), _) => Verdict::RuntimeError {
-            reason: signal_reason(sig),
+            reason: sanitizer_summary(&exec.stderr).unwrap_or_else(|| signal_reason(sig)),
         },
         (Termination::Exited(INPUT_ERROR_EXIT), _) if exec.stderr.contains("LC_IO:") => {
             Verdict::InputError {
@@ -75,7 +75,8 @@ pub fn judge(expected: Option<&str>, exec: &Execution) -> CaseResult {
             }
         }
         (Termination::Exited(code), _) if code != 0 => Verdict::RuntimeError {
-            reason: format!("exited with code {code}"),
+            reason: sanitizer_summary(&exec.stderr)
+                .unwrap_or_else(|| format!("exited with code {code}")),
         },
         (Termination::Exited(_), None) => Verdict::RuntimeError {
             reason: "no 'output:' line on stdout".to_string(),
@@ -97,6 +98,20 @@ pub fn judge(expected: Option<&str>, exec: &Execution) -> CaseResult {
         debug,
         stderr: exec.stderr.clone(),
     }
+}
+
+/// The headline of an AddressSanitizer or UBSan report, if stderr has one.
+fn sanitizer_summary(stderr: &str) -> Option<String> {
+    stderr.lines().find_map(|line| {
+        if let Some((_, rest)) = line.split_once("ERROR: AddressSanitizer: ") {
+            let what = rest.split(" on ").next().unwrap_or(rest).trim();
+            Some(format!("AddressSanitizer: {what}"))
+        } else if line.contains(": runtime error: ") {
+            Some(line.trim().to_string())
+        } else {
+            None
+        }
+    })
 }
 
 fn signal_reason(sig: Option<i32>) -> String {
@@ -176,6 +191,25 @@ mod tests {
             }
         );
         assert_eq!(r.debug, "partial");
+    }
+
+    #[test]
+    fn sanitizer_reports_become_the_reason() {
+        let mut e = exec("", Termination::Signaled(Some(6)));
+        e.stderr = "bal=0\n=====\n==1==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x60 at pc 0x1\nREAD of size 4\n".into();
+        assert_eq!(
+            judge(Some("1"), &e).verdict,
+            Verdict::RuntimeError {
+                reason: "AddressSanitizer: heap-buffer-overflow".into()
+            }
+        );
+
+        let mut e = exec("", Termination::Exited(1));
+        e.stderr = "solution.cpp:9:11: runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'\n".into();
+        let Verdict::RuntimeError { reason } = judge(Some("1"), &e).verdict else {
+            panic!("expected a runtime error");
+        };
+        assert!(reason.starts_with("solution.cpp:9:11: runtime error: signed integer overflow"));
     }
 
     #[test]

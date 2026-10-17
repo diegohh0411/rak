@@ -25,6 +25,7 @@ pub fn run(
     let start = Instant::now();
     let mut child = Command::new(&exe.program)
         .args(&exe.args)
+        .envs(exe.env.iter().map(|(k, v)| (k, v)))
         .current_dir(cwd)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -115,6 +116,7 @@ mod tests {
         Executable {
             program: "/bin/sh".into(),
             args: vec!["-c".into(), script.into()],
+            env: vec![],
         }
     }
 
@@ -131,6 +133,14 @@ mod tests {
         assert_eq!(e.stdout, "hello\n");
         assert_eq!(e.stderr, "err\n");
         assert_eq!(e.termination, Termination::Exited(0));
+    }
+
+    #[test]
+    fn passes_env() {
+        let mut exe = sh("printf %s \"$RAK_TEST_VAR\"");
+        exe.env.push(("RAK_TEST_VAR".into(), "hi".into()));
+        let (e, _) = run(&exe, &std::env::temp_dir(), "", Duration::from_secs(5)).unwrap();
+        assert_eq!(e.stdout, "hi");
     }
 
     #[test]
@@ -170,6 +180,7 @@ mod tests {
         let exe = Executable {
             program: "/nonexistent/rak-test-binary".into(),
             args: vec![],
+            env: vec![],
         };
         assert!(run(&exe, &std::env::temp_dir(), "", Duration::from_secs(1)).is_err());
     }

@@ -3,22 +3,37 @@
 
 use std::process::Command;
 
-use super::{BuildCtx, BuildError, Executable, Runtime, stable_hash};
+use super::{BuildCtx, BuildError, Executable, Profile, Runtime, stable_hash};
 use crate::scaffold;
 
 pub const SOURCE_FILE: &str = "solution.cpp";
-const BINARY: &str = "solution";
-const KEY_FILE: &str = "solution.key";
 const DEFAULT_COMPILER: &str = "c++";
 const DEFAULT_FLAGS: &[&str] = &["-std=c++17", "-O2"];
+/// AddressSanitizer + UBSan; UB aborts instead of printing and carrying on.
+const DEFAULT_DEBUG_FLAGS: &[&str] = &[
+    "-std=c++17",
+    "-O1",
+    "-g",
+    "-fno-omit-frame-pointer",
+    "-fsanitize=address,undefined",
+    "-fno-sanitize-recover=undefined",
+];
+/// Generated harnesses never free their input trees and lists, so leak
+/// reports would fail every such problem.
+const DEBUG_ENV: &[(&str, &str)] = &[
+    ("ASAN_OPTIONS", "detect_leaks=0"),
+    ("UBSAN_OPTIONS", "print_stacktrace=1"),
+];
 
 pub struct CppRuntime {
     compiler: String,
     flags: Vec<String>,
+    debug_flags: Vec<String>,
 }
 
 impl CppRuntime {
-    /// Settings: `compiler` (falls back to `$CXX`, then `c++`) and `flags`.
+    /// Settings: `compiler` (falls back to `$CXX`, then `c++`), `flags` and
+    /// `debug_flags` (used with `rak test --debug`).
     pub fn from_config(config: &serde_json::Value) -> Self {
         let compiler = config
             .get("compiler")
@@ -26,26 +41,33 @@ impl CppRuntime {
             .map(str::to_string)
             .or_else(|| std::env::var("CXX").ok().filter(|s| !s.is_empty()))
             .unwrap_or_else(|| DEFAULT_COMPILER.to_string());
-        let flags = config
-            .get("flags")
-            .and_then(|v| v.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|f| f.as_str().map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_else(|| DEFAULT_FLAGS.iter().map(|s| s.to_string()).collect());
-        Self { compiler, flags }
+        Self {
+            compiler,
+            flags: string_list(config, "flags", DEFAULT_FLAGS),
+            debug_flags: string_list(config, "debug_flags", DEFAULT_DEBUG_FLAGS),
+        }
+    }
+
+    fn flags(&self, profile: Profile) -> &[String] {
+        match profile {
+            Profile::Release => &self.flags,
+            Profile::Debug => &self.debug_flags,
+        }
     }
 
     fn compile_args(&self, ctx: &BuildCtx) -> Vec<String> {
-        let mut args = self.flags.clone();
+        let mut args = self.flags(ctx.profile).to_vec();
         args.push(format!("-I{}", ctx.workspace_dir.display()));
         // Relative, since the compiler runs in the problem folder: keeps
         // diagnostics short (`solution.cpp:20:20: error: ...`).
         args.push(SOURCE_FILE.to_string());
         args.push("-o".to_string());
-        args.push(ctx.build_dir.join(BINARY).display().to_string());
+        args.push(
+            ctx.build_dir
+                .join(binary_name(ctx.profile))
+                .display()
+                .to_string(),
+        );
         args
     }
 
@@ -55,7 +77,7 @@ impl CppRuntime {
         let mut material = Vec::new();
         for part in [
             self.compiler.as_bytes(),
-            self.flags.join("\0").as_bytes(),
+            self.flags(ctx.profile).join("\0").as_bytes(),
             ctx.workspace_dir.to_string_lossy().as_bytes(),
             source,
             &header,
@@ -85,11 +107,22 @@ impl Runtime for CppRuntime {
         })?;
 
         let exe = Executable {
-            program: ctx.build_dir.join(BINARY),
+            program: ctx.build_dir.join(binary_name(ctx.profile)),
             args: vec![],
+            env: match ctx.profile {
+                Profile::Release => vec![],
+                // Respect sanitizer options the user already exported.
+                Profile::Debug => DEBUG_ENV
+                    .iter()
+                    .filter(|(k, _)| std::env::var_os(k).is_none())
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            },
         };
         let key = self.cache_key(ctx, &source);
-        let key_path = ctx.build_dir.join(KEY_FILE);
+        let key_path = ctx
+            .build_dir
+            .join(format!("{}.key", binary_name(ctx.profile)));
         if exe.program.is_file() && std::fs::read_to_string(&key_path).is_ok_and(|k| k == key) {
             return Ok(exe);
         }
@@ -115,6 +148,26 @@ impl Runtime for CppRuntime {
             .map_err(|e| BuildError::Other(format!("failed to write build key: {e}")))?;
         Ok(exe)
     }
+}
+
+/// Each profile keeps its own binary so switching doesn't evict the cache.
+fn binary_name(profile: Profile) -> &'static str {
+    match profile {
+        Profile::Release => "solution",
+        Profile::Debug => "solution-debug",
+    }
+}
+
+fn string_list(config: &serde_json::Value, key: &str, default: &[&str]) -> Vec<String> {
+    config
+        .get(key)
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|f| f.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_else(|| default.iter().map(|s| s.to_string()).collect())
 }
 
 fn missing_compiler_hint(compiler: &str) -> String {
@@ -147,6 +200,7 @@ mod tests {
     fn default_flags() {
         let rt = CppRuntime::from_config(&serde_json::Value::Null);
         assert_eq!(rt.flags, vec!["-std=c++17", "-O2"]);
+        assert!(rt.debug_flags.iter().any(|f| f.starts_with("-fsanitize=")));
     }
 
     #[test]
@@ -160,6 +214,7 @@ mod tests {
                 problem_dir: dir.path(),
                 workspace_dir: dir.path(),
                 build_dir: &build,
+                profile: Profile::Release,
             })
             .unwrap_err();
         assert!(matches!(err, BuildError::ToolchainMissing(_)), "{err:?}");

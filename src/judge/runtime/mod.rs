@@ -17,6 +17,17 @@ use std::sync::{LazyLock, Mutex};
 pub struct Executable {
     pub program: PathBuf,
     pub args: Vec<String>,
+    /// Extra environment variables for each run.
+    pub env: Vec<(String, String)>,
+}
+
+/// How to build: `Release` for normal runs, `Debug` to trade speed for
+/// diagnostics (sanitizers, debug info) when chasing a crash.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Profile {
+    #[default]
+    Release,
+    Debug,
 }
 
 pub struct BuildCtx<'a> {
@@ -26,6 +37,7 @@ pub struct BuildCtx<'a> {
     pub workspace_dir: &'a Path,
     /// Scratch space for build outputs; created by the runtime if missing.
     pub build_dir: &'a Path,
+    pub profile: Profile,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

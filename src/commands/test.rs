@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use crate::config;
 use crate::judge::process;
-use crate::judge::runtime::{self, BuildCtx};
+use crate::judge::runtime::{self, BuildCtx, Profile};
 use crate::judge::verdict::{self, CaseResult, Verdict};
 use crate::scaffold::testcases::{self, Case};
 
@@ -14,6 +14,7 @@ pub fn run(
     case: Option<usize>,
     timeout_ms: Option<u64>,
     lang: Option<String>,
+    debug: bool,
 ) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
@@ -35,7 +36,13 @@ pub fn run(
     };
     let rt = runtime::get(&lang, &cfg.test.language(&lang))?;
 
-    eprint!("Building {}... ", rt.source_file());
+    let profile = if debug {
+        Profile::Debug
+    } else {
+        Profile::Release
+    };
+    let mode = if debug { " (debug)" } else { "" };
+    eprint!("Building {}{mode}... ", rt.source_file());
     let started = Instant::now();
     let build_dir = runtime::default_build_dir(&problem_dir);
     let exe = rt
@@ -43,6 +50,7 @@ pub fn run(
             problem_dir: &problem_dir,
             workspace_dir: &workspace_dir,
             build_dir: &build_dir,
+            profile,
         })
         .inspect_err(|_| eprintln!("failed"))
         .map_err(|e| e.to_string())?;
@@ -85,6 +93,10 @@ fn select_cases(cases: Vec<Case>, only: Option<usize>) -> Result<Vec<(usize, Cas
     }
 }
 
+/// Long stdout/stderr (e.g. sanitizer reports) is cut to keep the report
+/// readable; the first lines carry the useful part.
+const MAX_FIELD_LINES: usize = 30;
+
 fn format_case(n: usize, case: &Case, result: &CaseResult, elapsed: Duration) -> String {
     let (mark, label) = match &result.verdict {
         Verdict::Accepted => ("✓", "Accepted"),
@@ -101,11 +113,19 @@ fn format_case(n: usize, case: &Case, result: &CaseResult, elapsed: Duration) ->
     let mut out = format!("{mark} Case {n}: {label} ({time})\n");
 
     let mut field = |name: &str, value: &str| {
-        let mut lines = value.lines();
+        let total = value.lines().count();
+        let mut lines = value.lines().take(MAX_FIELD_LINES);
         let first = lines.next().unwrap_or("");
         out.push_str(&format!("    {name:<9} {first}\n"));
         for line in lines {
             out.push_str(&format!("    {:<9} {line}\n", ""));
+        }
+        if total > MAX_FIELD_LINES {
+            out.push_str(&format!(
+                "    {:<9} … {} more lines\n",
+                "",
+                total - MAX_FIELD_LINES
+            ));
         }
     };
     if result.verdict.is_failure() {
@@ -237,6 +257,20 @@ mod tests {
             Duration::from_millis(1),
         );
         assert_eq!(out.matches("LC_IO").count(), 1, "{out}");
+    }
+
+    #[test]
+    fn long_output_is_truncated() {
+        let stderr: String = (1..=40).map(|i| format!("line {i}\n")).collect();
+        let out = format_case(
+            1,
+            &case("1\n", Some("1")),
+            &result(Verdict::Accepted, "", &stderr),
+            Duration::from_millis(1),
+        );
+        assert!(out.contains("line 30\n"), "{out}");
+        assert!(!out.contains("line 31\n"), "{out}");
+        assert!(out.ends_with("… 10 more lines\n"), "{out}");
     }
 
     #[test]

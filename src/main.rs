@@ -123,6 +123,9 @@ enum Command {
         /// Language to test when the folder has solutions in several (e.g. cpp)
         #[arg(long)]
         lang: Option<String>,
+        /// Build with sanitizers and debug info to pinpoint crashes (slower)
+        #[arg(long, short)]
+        debug: bool,
     },
     /// Submit solution to LeetCode and display the result
     Push {
@@ -188,7 +191,8 @@ async fn main() {
             case,
             timeout,
             lang,
-        } => test::run(id, case, timeout, lang),
+            debug,
+        } => test::run(id, case, timeout, lang, debug),
         Command::Push { id } => push::run(id),
         Command::Login { provider } => login::run(provider),
         Command::Completions { shell } => commands::completions::run(&shell),
