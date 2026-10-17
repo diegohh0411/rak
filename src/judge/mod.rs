@@ -5,5 +5,10 @@
 //! stdout, comparing it and assigning a [`verdict::Verdict`] are shared.
 
 pub mod compare;
+pub mod process;
 pub mod protocol;
+pub mod runtime;
 pub mod verdict;
+
+#[cfg(test)]
+mod e2e_tests;

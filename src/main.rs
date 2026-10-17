@@ -134,6 +134,7 @@ async fn main() {
     let _ = dotenvy::dotenv();
     stt::init_providers();
     analyzer::init_providers();
+    judge::runtime::init_runtimes();
 
     let cli = Cli::parse();
 

@@ -71,7 +71,7 @@ pub fn write(
 }
 
 /// leetgo always refreshes `LC_IO.h` and writes `bits/stdc++.h` when missing.
-fn write_support_headers(workspace_dir: &Path) -> Result<(), String> {
+pub(crate) fn write_support_headers(workspace_dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(workspace_dir.join("bits")).map_err(|e| e.to_string())?;
     std::fs::write(workspace_dir.join("LC_IO.h"), cpp::LC_IO_H)
         .map_err(|e| format!("failed to write LC_IO.h: {e}"))?;
