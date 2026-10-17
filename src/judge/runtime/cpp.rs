@@ -9,6 +9,10 @@ use crate::scaffold;
 pub const SOURCE_FILE: &str = "solution.cpp";
 const DEFAULT_COMPILER: &str = "c++";
 const DEFAULT_FLAGS: &[&str] = &["-std=c++17", "-O2"];
+/// Always passed, after the configured flags: falling off the end of a
+/// non-void function (a forgotten `return`) is UB that otherwise shows up
+/// as a garbage answer.
+const REQUIRED_FLAGS: &[&str] = &["-Werror=return-type"];
 /// AddressSanitizer + UBSan; UB aborts instead of printing and carrying on.
 const DEFAULT_DEBUG_FLAGS: &[&str] = &[
     "-std=c++17",
@@ -57,6 +61,7 @@ impl CppRuntime {
 
     fn compile_args(&self, ctx: &BuildCtx) -> Vec<String> {
         let mut args = self.flags(ctx.profile).to_vec();
+        args.extend(REQUIRED_FLAGS.iter().map(|f| f.to_string()));
         args.push(format!("-I{}", ctx.workspace_dir.display()));
         // Relative, since the compiler runs in the problem folder: keeps
         // diagnostics short (`solution.cpp:20:20: error: ...`).
@@ -78,6 +83,7 @@ impl CppRuntime {
         for part in [
             self.compiler.as_bytes(),
             self.flags(ctx.profile).join("\0").as_bytes(),
+            REQUIRED_FLAGS.join("\0").as_bytes(),
             ctx.workspace_dir.to_string_lossy().as_bytes(),
             source,
             &header,
