@@ -5,7 +5,7 @@ use crate::config;
 use crate::credentials;
 use crate::recorder::{self, tui};
 
-pub fn run(id: String, force: bool) -> Result<(), String> {
+pub fn run(id: String, force: bool, resume: bool) -> Result<(), String> {
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
     let problem_id = config::ProblemId::parse(&id);
@@ -23,16 +23,31 @@ pub fn run(id: String, force: bool) -> Result<(), String> {
 
     recorder::check_ffmpeg()?;
 
-    let attempt = recorder::next_attempt_number(&problem_dir, force);
+    let (attempt, existing) = if resume {
+        let n = recorder::latest_attempt_number(&problem_dir)
+            .ok_or("no previous recording to resume; run without --resume first")?;
+        (n, Some(problem_dir.join(format!("attempt-{n}.mp3"))))
+    } else {
+        (recorder::next_attempt_number(&problem_dir, force), None)
+    };
     let filename = format!("attempt-{attempt}.mp3");
-    let output_path = problem_dir.join(&filename);
+    // When resuming, record to a side file and merge afterwards so a cancel leaves the original intact.
+    let output_path = match existing {
+        Some(_) => problem_dir.join(format!("attempt-{attempt}.resume.mp3")),
+        None => problem_dir.join(&filename),
+    };
     let output_str = output_path.to_string_lossy().to_string();
 
     let saved = tui::run_recorder_tui(&output_str, &filename)?;
 
-    if let Some(path) = saved {
+    if let Some(mut path) = saved {
         if !std::path::Path::new(&path).exists() {
             return Err("recording was not saved".to_string());
+        }
+        if let Some(existing) = existing {
+            recorder::append_audio(&existing, &output_path)?;
+            eprintln!("✓ Appended to {filename}");
+            path = existing.to_string_lossy().to_string();
         }
         println!();
         let transcribed = match transcribe_attempt(&cfg, &problem_dir, &path, attempt) {

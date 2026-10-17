@@ -348,6 +348,49 @@ pub fn next_attempt_number(dir: &Path, force: bool) -> usize {
     max_n + 1
 }
 
+/// Highest existing `attempt-N.mp3` number in `dir`, if any.
+pub fn latest_attempt_number(dir: &Path) -> Option<usize> {
+    match next_attempt_number(dir, false) {
+        1 => None,
+        n => Some(n - 1),
+    }
+}
+
+/// Concatenate `addition` onto `existing` (re-encoded to mp3), replacing `existing`.
+pub fn append_audio(existing: &Path, addition: &Path) -> Result<(), String> {
+    let merged = existing.with_extension("merged.mp3");
+    let output = Command::new("ffmpeg")
+        .arg("-y")
+        .arg("-i")
+        .arg(existing)
+        .arg("-i")
+        .arg(addition)
+        .args([
+            "-filter_complex",
+            "[0:a][1:a]concat=n=2:v=0:a=1[out]",
+            "-map",
+            "[out]",
+            "-c:a",
+            "libmp3lame",
+            "-q:a",
+            "2",
+        ])
+        .arg(&merged)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| format!("failed to run ffmpeg: {e}"))?;
+    if !output.status.success() {
+        let _ = fs::remove_file(&merged);
+        return Err(format!(
+            "ffmpeg failed to append audio: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    fs::rename(&merged, existing).map_err(|e| e.to_string())?;
+    let _ = fs::remove_file(addition);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -476,5 +519,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("attempt-5.mp3"), "").unwrap();
         assert_eq!(next_attempt_number(dir.path(), true), 1);
+    }
+
+    #[test]
+    fn latest_attempt_number_cases() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(latest_attempt_number(dir.path()), None);
+        fs::write(dir.path().join("attempt-2.mp3"), "").unwrap();
+        fs::write(dir.path().join("attempt-2.resume.mp3"), "").unwrap();
+        assert_eq!(latest_attempt_number(dir.path()), Some(2));
     }
 }

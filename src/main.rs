@@ -73,6 +73,9 @@ enum Command {
         /// Restart numbering from attempt-1
         #[arg(long, short)]
         force: bool,
+        /// Append the new audio to the latest attempt instead of starting a new one
+        #[arg(long, short, conflicts_with = "force")]
+        resume: bool,
     },
     /// Transcribe voice note recordings for a problem
     Transcribe {
@@ -169,7 +172,7 @@ async fn main() {
         } => log::run(id, rating, force, date),
         Command::Next { count } => next::run(count),
         Command::Scrape { url, output } => scrape::run(url, output).await,
-        Command::Record { id, force } => record::run(id, force),
+        Command::Record { id, force, resume } => record::run(id, force, resume),
         Command::Transcribe {
             id,
             provider,
