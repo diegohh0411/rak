@@ -1,6 +1,80 @@
-//! `testcases.txt` generation, matching leetgo's `generateTestCasesContent`.
+//! `testcases.txt` generation, matching leetgo's `generateTestCasesContent`,
+//! and parsing it back for local testing.
 
 use super::question::Question;
+
+/// One `input:` / `output:` block of `testcases.txt`.
+#[allow(dead_code)] // used by `rak test` once the command lands
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Case {
+    /// One argument per line, newline-terminated, ready to feed to stdin.
+    pub input: String,
+    /// `None` when the block has no expected output.
+    pub expected: Option<String>,
+}
+
+/// Parse `testcases.txt`. Blank lines are ignored; a block runs from its
+/// `input:` line until the next `input:` line.
+#[allow(dead_code)] // used by `rak test` once the command lands
+pub fn parse(content: &str) -> Result<Vec<Case>, String> {
+    #[derive(PartialEq)]
+    enum Section {
+        None,
+        Input,
+        Output,
+    }
+
+    let mut cases = Vec::new();
+    let mut input: Vec<&str> = Vec::new();
+    let mut output: Vec<&str> = Vec::new();
+    let mut section = Section::None;
+
+    let mut flush = |input: &mut Vec<&str>, output: &mut Vec<&str>| {
+        let expected = output.join("\n");
+        cases.push(Case {
+            input: input.iter().map(|l| format!("{l}\n")).collect(),
+            expected: (!expected.is_empty()).then_some(expected),
+        });
+        input.clear();
+        output.clear();
+    };
+
+    for (n, raw) in content.lines().enumerate() {
+        let line = raw.trim();
+        match line {
+            "input:" => {
+                if section != Section::None {
+                    flush(&mut input, &mut output);
+                }
+                section = Section::Input;
+            }
+            "output:" => {
+                if section != Section::Input {
+                    return Err(format!(
+                        "testcases.txt line {}: 'output:' without a preceding 'input:'",
+                        n + 1
+                    ));
+                }
+                section = Section::Output;
+            }
+            "" => {}
+            _ => match section {
+                Section::None => {
+                    return Err(format!(
+                        "testcases.txt line {}: expected 'input:', found {line:?}",
+                        n + 1
+                    ));
+                }
+                Section::Input => input.push(line),
+                Section::Output => output.push(line),
+            },
+        }
+    }
+    if section != Section::None {
+        flush(&mut input, &mut output);
+    }
+    Ok(cases)
+}
 
 pub fn generate(q: &Question) -> String {
     let cases = q.example_test_cases();
@@ -90,5 +164,48 @@ mod tests {
         assert!(is_valid_value("string", "\"abc\""));
         assert!(is_valid_value("integer[][]", "[[1,2],[3]]"));
         assert!(!is_valid_value("void", "1"));
+    }
+
+    #[test]
+    fn parses_generated_format() {
+        let content =
+            "input:\n[2,7,11,15]\n9\noutput:\n[0,1]\n\ninput:\n[3,2,4]\n6\noutput:\n[1,2]\n";
+        let cases = parse(content).unwrap();
+        assert_eq!(
+            cases,
+            vec![
+                Case {
+                    input: "[2,7,11,15]\n9\n".into(),
+                    expected: Some("[0,1]".into()),
+                },
+                Case {
+                    input: "[3,2,4]\n6\n".into(),
+                    expected: Some("[1,2]".into()),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn parses_missing_output_and_crlf() {
+        let content = "input:\r\n\"abc\"\r\noutput:\r\n\r\ninput:\r\n\"x\"\r\n";
+        let cases = parse(content).unwrap();
+        assert_eq!(cases.len(), 2);
+        assert_eq!(cases[0].input, "\"abc\"\n");
+        assert_eq!(cases[0].expected, None);
+        assert_eq!(cases[1].input, "\"x\"\n");
+        assert_eq!(cases[1].expected, None);
+    }
+
+    #[test]
+    fn parse_empty_file_has_no_cases() {
+        assert!(parse("").unwrap().is_empty());
+        assert!(parse("\n\n").unwrap().is_empty());
+    }
+
+    #[test]
+    fn parse_rejects_stray_content() {
+        assert!(parse("[1,2]\noutput:\n3\n").is_err());
+        assert!(parse("output:\n3\n").is_err());
     }
 }

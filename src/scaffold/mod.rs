@@ -5,7 +5,7 @@
 pub mod cpp;
 mod markdown;
 mod question;
-mod testcases;
+pub mod testcases;
 mod wordwrap;
 
 use std::path::Path;

@@ -3,6 +3,9 @@ mod commands;
 mod config;
 mod credentials;
 mod history;
+// Wired into `rak test` once the runtimes and command land.
+#[allow(dead_code)]
+mod judge;
 mod leetcode;
 mod leitner;
 mod recorder;
