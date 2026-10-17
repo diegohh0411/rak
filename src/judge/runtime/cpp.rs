@@ -41,7 +41,9 @@ impl CppRuntime {
     fn compile_args(&self, ctx: &BuildCtx) -> Vec<String> {
         let mut args = self.flags.clone();
         args.push(format!("-I{}", ctx.workspace_dir.display()));
-        args.push(ctx.problem_dir.join(SOURCE_FILE).display().to_string());
+        // Relative, since the compiler runs in the problem folder: keeps
+        // diagnostics short (`solution.cpp:20:20: error: ...`).
+        args.push(SOURCE_FILE.to_string());
         args.push("-o".to_string());
         args.push(ctx.build_dir.join(BINARY).display().to_string());
         args
@@ -66,10 +68,6 @@ impl CppRuntime {
 }
 
 impl Runtime for CppRuntime {
-    fn lang(&self) -> &str {
-        "cpp"
-    }
-
     fn source_file(&self) -> &str {
         SOURCE_FILE
     }
@@ -99,6 +97,7 @@ impl Runtime for CppRuntime {
 
         let output = Command::new(&self.compiler)
             .args(self.compile_args(ctx))
+            .current_dir(ctx.problem_dir)
             .output()
             .map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {

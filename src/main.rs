@@ -3,8 +3,6 @@ mod commands;
 mod config;
 mod credentials;
 mod history;
-// Wired into `rak test` once the runtimes and command land.
-#[allow(dead_code)]
 mod judge;
 mod leetcode;
 mod leitner;
@@ -13,7 +11,9 @@ mod scaffold;
 mod stt;
 
 use clap::{CommandFactory, Parser, Subcommand};
-use commands::{add, analyze, init, log, login, next, pull, push, record, scrape, transcribe};
+use commands::{
+    add, analyze, init, log, login, next, pull, push, record, scrape, test, transcribe,
+};
 
 #[derive(Parser)]
 #[command(
@@ -107,6 +107,23 @@ enum Command {
         #[arg(long, short)]
         force: bool,
     },
+    /// Run the solution against testcases.txt locally
+    Test {
+        /// LeetCode problem ID (numeric or slug)
+        id: String,
+        /// Test locally (the default; accepted for leetgo compatibility)
+        #[arg(long, short = 'L')]
+        local: bool,
+        /// Only run test case N (numbered from 1)
+        #[arg(long, short)]
+        case: Option<usize>,
+        /// Per-case time limit in milliseconds (overrides [test] timeout_ms)
+        #[arg(long, short, value_name = "MS")]
+        timeout: Option<u64>,
+        /// Language to test when the folder has solutions in several (e.g. cpp)
+        #[arg(long)]
+        lang: Option<String>,
+    },
     /// Submit solution to LeetCode and display the result
     Push {
         /// LeetCode problem ID (numeric or slug)
@@ -165,6 +182,13 @@ async fn main() {
             refresh,
             force,
         } => pull::run(qid, refresh, force),
+        Command::Test {
+            id,
+            local: _,
+            case,
+            timeout,
+            lang,
+        } => test::run(id, case, timeout, lang),
         Command::Push { id } => push::run(id),
         Command::Login { provider } => login::run(provider),
         Command::Completions { shell } => commands::completions::run(&shell),

@@ -4,7 +4,6 @@
 use super::question::Question;
 
 /// One `input:` / `output:` block of `testcases.txt`.
-#[allow(dead_code)] // used by `rak test` once the command lands
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Case {
     /// One argument per line, newline-terminated, ready to feed to stdin.
@@ -15,7 +14,6 @@ pub struct Case {
 
 /// Parse `testcases.txt`. Blank lines are ignored; a block runs from its
 /// `input:` line until the next `input:` line.
-#[allow(dead_code)] // used by `rak test` once the command lands
 pub fn parse(content: &str) -> Result<Vec<Case>, String> {
     #[derive(PartialEq)]
     enum Section {

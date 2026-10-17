@@ -47,8 +47,6 @@ impl std::fmt::Display for BuildError {
 }
 
 pub trait Runtime: Send + Sync {
-    /// LeetCode language slug, e.g. `cpp`.
-    fn lang(&self) -> &str;
     /// Solution file name inside the problem folder, e.g. `solution.cpp`.
     fn source_file(&self) -> &str;
     /// Build the solution, reusing a previous build when nothing changed.

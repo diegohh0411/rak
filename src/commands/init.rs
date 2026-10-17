@@ -57,6 +57,13 @@ model = "~google/gemini-flash-latest"
 
 [leetcode]
 # session = ""   # or set LEETCODE_SESSION env var
+
+[test]
+timeout_ms = 2000   # per test case
+
+[test.cpp]
+# compiler = "c++"   # defaults to $CXX, then c++
+# flags = ["-std=c++17", "-O2"]
 "#;
 
 pub fn run() -> Result<(), String> {
