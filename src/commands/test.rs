@@ -185,7 +185,7 @@ fn format_case(
         }
         Verdict::Accepted | Verdict::TimeLimitExceeded => {}
     }
-    if !result.debug.trim().is_empty() {
+    if result.verdict.is_failure() && !result.debug.trim().is_empty() {
         field("stdout:", &result.debug);
     }
     // An input error's stderr is already its reason.
@@ -228,6 +228,18 @@ mod tests {
             1,
             &case("[1]\n", Some("1")),
             &result(Verdict::Accepted, "", ""),
+            Duration::from_millis(3),
+            false,
+        );
+        assert_eq!(out, "✓ Case 1: Accepted (3 ms)\n");
+    }
+
+    #[test]
+    fn accepted_hides_stdout() {
+        let out = format_case(
+            1,
+            &case("[1]\n", Some("1")),
+            &result(Verdict::Accepted, "debug line", ""),
             Duration::from_millis(3),
             false,
         );
