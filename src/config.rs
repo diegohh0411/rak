@@ -104,7 +104,7 @@ pub struct TestConfig {
 }
 
 fn default_test_timeout_ms() -> u64 {
-    2000
+    1000
 }
 
 impl Default for TestConfig {
@@ -278,7 +278,7 @@ model = "whisper-1"
     #[test]
     fn parse_test_config() {
         let config: RakConfig = toml::from_str("leetcode_dir = \"lc\"").unwrap();
-        assert_eq!(config.test.timeout_ms, 2000);
+        assert_eq!(config.test.timeout_ms, 1000);
         assert!(config.test.language("cpp").is_null());
 
         let toml_str = r#"

@@ -1,6 +1,7 @@
 //! `rak test`: build the solution and run it against `testcases.txt`
 //! locally, like `leetgo test --local`.
 
+use std::io::IsTerminal;
 use std::time::{Duration, Instant};
 
 use crate::config;
@@ -57,6 +58,7 @@ pub fn run(
     eprintln!("done ({})", format_duration(started.elapsed()));
 
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(cfg.test.timeout_ms));
+    let color = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
     let mut failed = 0;
     for (n, case) in &cases {
         let (exec, elapsed) = process::run(&exe, &problem_dir, &case.input, timeout)?;
@@ -64,15 +66,30 @@ pub fn run(
         if result.verdict.is_failure() {
             failed += 1;
         }
-        print!("{}", format_case(*n, case, &result, elapsed));
+        print!("{}", format_case(*n, case, &result, elapsed, color));
     }
 
     let total = cases.len();
     println!();
     if failed == 0 {
-        println!("✓ Passed {total}/{total} test cases");
+        println!(
+            "{}",
+            paint(
+                GREEN,
+                &format!("✓ Passed {total}/{total} test cases"),
+                color
+            )
+        );
         Ok(())
     } else {
+        println!(
+            "{}",
+            paint(
+                RED,
+                &format!("✗ Passed {}/{total} test cases", total - failed),
+                color
+            )
+        );
         Err(format!("{failed} of {total} test cases failed"))
     }
 }
@@ -97,7 +114,25 @@ fn select_cases(cases: Vec<Case>, only: Option<usize>) -> Result<Vec<(usize, Cas
 /// readable; the first lines carry the useful part.
 const MAX_FIELD_LINES: usize = 30;
 
-fn format_case(n: usize, case: &Case, result: &CaseResult, elapsed: Duration) -> String {
+const GREEN: &str = "\x1b[32m";
+const RED: &str = "\x1b[31m";
+const YELLOW: &str = "\x1b[33m";
+
+fn paint(code: &str, text: &str, color: bool) -> String {
+    if color {
+        format!("{code}{text}\x1b[0m")
+    } else {
+        text.to_string()
+    }
+}
+
+fn format_case(
+    n: usize,
+    case: &Case,
+    result: &CaseResult,
+    elapsed: Duration,
+    color: bool,
+) -> String {
     let (mark, label) = match &result.verdict {
         Verdict::Accepted => ("✓", "Accepted"),
         Verdict::NoExpected { .. } => ("?", "No expected output"),
@@ -110,7 +145,15 @@ fn format_case(n: usize, case: &Case, result: &CaseResult, elapsed: Duration) ->
         Verdict::TimeLimitExceeded => format!(">{}", format_duration(elapsed)),
         _ => format_duration(elapsed),
     };
-    let mut out = format!("{mark} Case {n}: {label} ({time})\n");
+    let code = match result.verdict {
+        Verdict::Accepted => GREEN,
+        Verdict::NoExpected { .. } => YELLOW,
+        _ => RED,
+    };
+    let mut out = format!(
+        "{}\n",
+        paint(code, &format!("{mark} Case {n}: {label} ({time})"), color)
+    );
 
     let mut field = |name: &str, value: &str| {
         let total = value.lines().count();
@@ -186,6 +229,7 @@ mod tests {
             &case("[1]\n", Some("1")),
             &result(Verdict::Accepted, "", ""),
             Duration::from_millis(3),
+            false,
         );
         assert_eq!(out, "✓ Case 1: Accepted (3 ms)\n");
     }
@@ -204,6 +248,7 @@ mod tests {
                 "",
             ),
             Duration::from_millis(12),
+            false,
         );
         assert_eq!(
             out,
@@ -224,6 +269,7 @@ mod tests {
             &case("1\n", Some("1")),
             &result(Verdict::TimeLimitExceeded, "", ""),
             Duration::from_millis(2000),
+            false,
         );
         assert!(
             out.starts_with("✗ Case 1: Time Limit Exceeded (>2.00 s)\n"),
@@ -235,6 +281,7 @@ mod tests {
             &case("1\n", None),
             &result(Verdict::NoExpected { actual: "7".into() }, "", ""),
             Duration::from_millis(1),
+            false,
         );
         assert_eq!(
             out,
@@ -255,6 +302,7 @@ mod tests {
                 "LC_IO: expected ']'\n",
             ),
             Duration::from_millis(1),
+            false,
         );
         assert_eq!(out.matches("LC_IO").count(), 1, "{out}");
     }
@@ -267,6 +315,7 @@ mod tests {
             &case("1\n", Some("1")),
             &result(Verdict::Accepted, "", &stderr),
             Duration::from_millis(1),
+            false,
         );
         assert!(out.contains("line 30\n"), "{out}");
         assert!(!out.contains("line 31\n"), "{out}");
