@@ -10,4 +10,5 @@ pub mod pull_tui;
 pub mod push;
 pub mod record;
 pub mod scrape;
+pub mod test;
 pub mod transcribe;

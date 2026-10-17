@@ -14,3 +14,11 @@ _Avoid_: report, review
 
 **Provider**:
 A named backend for transcribe or analyze, chosen in `rak.toml` and optionally overridden on the CLI.
+
+**Runtime**:
+A registered language backend for `rak test` that builds a problem's solution file into an Executable, e.g. the C++ runtime compiling `solution.cpp`. It only builds; running and judging are shared.
+_Avoid_: compiler, toolchain, language provider
+
+**Verdict**:
+The judged outcome of one test case: Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded, Invalid Input, or No expected output.
+_Avoid_: result, status

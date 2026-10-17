@@ -57,6 +57,14 @@ model = "~google/gemini-flash-latest"
 
 [leetcode]
 # session = ""   # or set LEETCODE_SESSION env var
+
+[test]
+timeout_ms = 2000   # per test case
+
+[test.cpp]
+# compiler = "c++"   # defaults to $CXX, then c++
+# flags = ["-std=c++17", "-O2"]
+# debug_flags = ["-std=c++17", "-O1", "-g", "-fno-omit-frame-pointer", "-fsanitize=address,undefined", "-fno-sanitize-recover=undefined"]   # rak test --debug
 "#;
 
 pub fn run() -> Result<(), String> {

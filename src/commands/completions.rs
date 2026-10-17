@@ -91,7 +91,7 @@ _rak() {
         fi
     done
 
-    if [[ ${COMP_WORDS[1]} == @(add|log|record|transcribe|analyze|push) ]]; then
+    if [[ ${COMP_WORDS[1]} == @(add|log|record|transcribe|analyze|push|test) ]]; then
         if [[ ${COMP_CWORD} -eq 2 && "${COMP_WORDS[2]}" != -* ]]; then
             __rak_problem_slugs
             return

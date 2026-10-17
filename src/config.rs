@@ -12,6 +12,8 @@ pub struct RakConfig {
     pub analyze: AnalyzeConfig,
     #[serde(default)]
     pub leetcode: LeetcodeConfig,
+    #[serde(default)]
+    pub test: TestConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -89,6 +91,39 @@ pub struct ProviderConfig {
 pub struct LeetcodeConfig {
     #[serde(default)]
     pub session: String,
+}
+
+/// `[test]`: local testing. Per-language runtime settings live in
+/// `[test.<lang>]` tables (e.g. `[test.cpp]`) and are handed to the runtime.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TestConfig {
+    #[serde(default = "default_test_timeout_ms")]
+    pub timeout_ms: u64,
+    #[serde(flatten)]
+    pub languages: HashMap<String, serde_json::Value>,
+}
+
+fn default_test_timeout_ms() -> u64 {
+    2000
+}
+
+impl Default for TestConfig {
+    fn default() -> Self {
+        Self {
+            timeout_ms: default_test_timeout_ms(),
+            languages: HashMap::new(),
+        }
+    }
+}
+
+impl TestConfig {
+    /// Settings for one language's runtime; `Null` when not configured.
+    pub fn language(&self, lang: &str) -> serde_json::Value {
+        self.languages
+            .get(lang)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null)
+    }
 }
 
 #[derive(Debug)]
@@ -238,6 +273,27 @@ model = "whisper-1"
             config.transcribe.providers.get("elevenlabs").unwrap().model,
             None
         );
+    }
+
+    #[test]
+    fn parse_test_config() {
+        let config: RakConfig = toml::from_str("leetcode_dir = \"lc\"").unwrap();
+        assert_eq!(config.test.timeout_ms, 2000);
+        assert!(config.test.language("cpp").is_null());
+
+        let toml_str = r#"
+leetcode_dir = "lc"
+[test]
+timeout_ms = 500
+[test.cpp]
+compiler = "g++-14"
+flags = ["-std=c++20", "-O2"]
+"#;
+        let config: RakConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.test.timeout_ms, 500);
+        let cpp = config.test.language("cpp");
+        assert_eq!(cpp["compiler"], "g++-14");
+        assert_eq!(cpp["flags"][0], "-std=c++20");
     }
 
     #[test]
