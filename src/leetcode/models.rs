@@ -76,6 +76,11 @@ pub struct CheckResult {
     pub total_testcases: Option<u32>,
     pub status_runtime: Option<String>,
     pub status_memory: Option<String>,
+    /// Share of accepted submissions this one beat on runtime / memory.
+    #[serde(default)]
+    pub runtime_percentile: Option<f64>,
+    #[serde(default)]
+    pub memory_percentile: Option<f64>,
     pub compile_error: Option<String>,
     pub full_compile_error: Option<String>,
 }

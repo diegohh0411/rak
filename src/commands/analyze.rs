@@ -49,7 +49,7 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
 
     let analyzer = analyzer::get(provider_name, &json_config)?;
 
-    println!("Analyzing {}...", id);
+    out!("Analyzing {}...", id);
     let ctx = AnalysisContext {
         question,
         solution,
@@ -59,7 +59,7 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
     let result = analyzer.analyze(&cfg.analyze.system_prompt, &ctx)?;
 
     fs::write(&analysis_path, &result).map_err(|e| format!("failed to write analysis.md: {e}"))?;
-    println!("✓ Saved {}", analysis_path.display());
+    out!("✓ Saved {}", analysis_path.display());
 
     let leetcode_dir = config_dir.join(&cfg.leetcode_dir);
     let history_path = config_dir.join("history.yaml");
@@ -188,7 +188,7 @@ fn rebuild_master(
 
     if history_dirty {
         history::save(history_path, &hist)?;
-        println!("✓ Updated metadata in {}", history_path.display());
+        out!("✓ Updated metadata in {}", history_path.display());
     }
 
     // Most recent first
@@ -212,12 +212,12 @@ fn rebuild_master(
     let master_path = master_dir.join("analyses-master.md");
     fs::write(&master_path, content)
         .map_err(|e| format!("failed to write analyses-master.md: {e}"))?;
-    println!("✓ Updated {}", master_path.display());
+    out!("✓ Updated {}", master_path.display());
 
     Ok(())
 }
 
-fn folder_to_history_key(folder_name: &str) -> String {
+pub(crate) fn folder_to_history_key(folder_name: &str) -> String {
     // "0001.two-sum" → "1"  (matches the key used by `rak log`)
     // "c3ai-strings" → "c3ai-strings"
     if let Some(dot_pos) = folder_name.find('.')

@@ -69,7 +69,7 @@ pub fn run(id: String, force: bool, resume: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn transcribe_attempt(
+pub(crate) fn transcribe_attempt(
     cfg: &config::RakConfig,
     problem_dir: &std::path::Path,
     audio_path: &str,
@@ -92,16 +92,16 @@ fn transcribe_attempt(
     }
 
     let provider = crate::stt::get(provider_name, &json_config)?;
-    eprintln!("Transcribing...");
+    say!("Transcribing...");
     let text = provider.transcribe(std::path::Path::new(audio_path))?;
     if text.is_empty() {
-        eprintln!("Warning: transcript is empty, skipping");
+        say!("Warning: transcript is empty, skipping");
         return Ok(false);
     }
 
     let md_name = format!("attempt-{attempt}.md");
     std::fs::write(problem_dir.join(&md_name), &text).map_err(|e| e.to_string())?;
-    eprintln!("✓ Transcribed → {md_name}");
+    say!("✓ Transcribed → {md_name}");
     Ok(true)
 }
 

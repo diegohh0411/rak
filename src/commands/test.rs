@@ -2,11 +2,12 @@
 //! locally, like `leetgo test --local`.
 
 use std::io::IsTerminal;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crate::config;
 use crate::judge::process;
-use crate::judge::runtime::{self, BuildCtx, Profile};
+use crate::judge::runtime::{self, BuildCtx, BuildError, Executable, Profile, Runtime};
 use crate::judge::verdict::{self, CaseResult, Verdict};
 use crate::scaffold::testcases::{self, Case};
 
@@ -17,59 +18,28 @@ pub fn run(
     lang: Option<String>,
     debug: bool,
 ) -> Result<(), String> {
-    let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
-    let cfg = config::load(&config_dir)?;
-    let problem_id = config::ProblemId::parse(&id);
-    let problem_dir = config::resolve_problem_folder(&config_dir, &cfg, &problem_id)?;
-    let workspace_dir = problem_dir
-        .parent()
-        .ok_or("problem folder has no parent directory")?
-        .to_path_buf();
+    let plan = plan(&id, case, timeout_ms, lang, debug)?;
 
-    let testcases_path = problem_dir.join("testcases.txt");
-    let content = std::fs::read_to_string(&testcases_path)
-        .map_err(|e| format!("failed to read {}: {e}", testcases_path.display()))?;
-    let cases = select_cases(testcases::parse(&content)?, case)?;
-
-    let lang = match lang {
-        Some(l) => l,
-        None => runtime::detect(&problem_dir)?,
-    };
-    let rt = runtime::get(&lang, &cfg.test.language(&lang))?;
-
-    let profile = if debug {
-        Profile::Debug
-    } else {
-        Profile::Release
-    };
     let mode = if debug { " (debug)" } else { "" };
-    eprint!("Building {}{mode}... ", rt.source_file());
+    eprint!("Building {}{mode}... ", plan.source_file());
     let started = Instant::now();
-    let build_dir = runtime::default_build_dir(&problem_dir);
-    let exe = rt
-        .build(&BuildCtx {
-            problem_dir: &problem_dir,
-            workspace_dir: &workspace_dir,
-            build_dir: &build_dir,
-            profile,
-        })
+    let exe = plan
+        .build()
         .inspect_err(|_| eprintln!("failed"))
         .map_err(|e| e.to_string())?;
     eprintln!("done ({})", format_duration(started.elapsed()));
 
-    let timeout = Duration::from_millis(timeout_ms.unwrap_or(cfg.test.timeout_ms));
     let color = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
     let mut failed = 0;
-    for (n, case) in &cases {
-        let (exec, elapsed) = process::run(&exe, &problem_dir, &case.input, timeout)?;
-        let result = verdict::judge(case.expected.as_deref(), &exec);
+    for (n, case) in &plan.cases {
+        let (result, elapsed) = plan.run_case(&exe, case)?;
         if result.verdict.is_failure() {
             failed += 1;
         }
         print!("{}", format_case(*n, case, &result, elapsed, color));
     }
 
-    let total = cases.len();
+    let total = plan.cases.len();
     println!();
     if failed == 0 {
         println!(
@@ -91,6 +61,84 @@ pub fn run(
             )
         );
         Err(format!("{failed} of {total} test cases failed"))
+    }
+}
+
+/// Everything needed to build a problem's solution and run its cases.
+pub struct Plan {
+    pub problem_dir: PathBuf,
+    workspace_dir: PathBuf,
+    /// Cases numbered from 1, narrowed to one when `-c` was given.
+    pub cases: Vec<(usize, Case)>,
+    pub timeout: Duration,
+    rt: Box<dyn Runtime>,
+    profile: Profile,
+}
+
+/// Load the cases and the language runtime for `id`.
+pub fn plan(
+    id: &str,
+    case: Option<usize>,
+    timeout_ms: Option<u64>,
+    lang: Option<String>,
+    debug: bool,
+) -> Result<Plan, String> {
+    let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
+    let cfg = config::load(&config_dir)?;
+    let problem_id = config::ProblemId::parse(id);
+    let problem_dir = config::resolve_problem_folder(&config_dir, &cfg, &problem_id)?;
+    let workspace_dir = problem_dir
+        .parent()
+        .ok_or("problem folder has no parent directory")?
+        .to_path_buf();
+
+    let testcases_path = problem_dir.join("testcases.txt");
+    let content = std::fs::read_to_string(&testcases_path)
+        .map_err(|e| format!("failed to read {}: {e}", testcases_path.display()))?;
+    let cases = select_cases(testcases::parse(&content)?, case)?;
+
+    let lang = match lang {
+        Some(l) => l,
+        None => runtime::detect(&problem_dir)?,
+    };
+    let rt = runtime::get(&lang, &cfg.test.language(&lang))?;
+
+    Ok(Plan {
+        problem_dir,
+        workspace_dir,
+        cases,
+        timeout: Duration::from_millis(timeout_ms.unwrap_or(cfg.test.timeout_ms)),
+        rt,
+        profile: if debug {
+            Profile::Debug
+        } else {
+            Profile::Release
+        },
+    })
+}
+
+impl Plan {
+    pub fn source_file(&self) -> &str {
+        self.rt.source_file()
+    }
+
+    pub fn build(&self) -> Result<Executable, BuildError> {
+        let build_dir = runtime::default_build_dir(&self.problem_dir);
+        self.rt.build(&BuildCtx {
+            problem_dir: &self.problem_dir,
+            workspace_dir: &self.workspace_dir,
+            build_dir: &build_dir,
+            profile: self.profile,
+        })
+    }
+
+    pub fn run_case(
+        &self,
+        exe: &Executable,
+        case: &Case,
+    ) -> Result<(CaseResult, Duration), String> {
+        let (exec, elapsed) = process::run(exe, &self.problem_dir, &case.input, self.timeout)?;
+        Ok((verdict::judge(case.expected.as_deref(), &exec), elapsed))
     }
 }
 
@@ -195,7 +243,7 @@ fn format_case(
     out
 }
 
-fn format_duration(d: Duration) -> String {
+pub(crate) fn format_duration(d: Duration) -> String {
     if d < Duration::from_secs(1) {
         format!("{} ms", d.as_millis())
     } else {

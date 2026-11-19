@@ -1,3 +1,21 @@
+/// `eprintln!` unless the TUI has silenced output (see `quiet`).
+macro_rules! say {
+    ($($arg:tt)*) => {
+        if !$crate::quiet::is_quiet() {
+            eprintln!($($arg)*);
+        }
+    };
+}
+
+/// `println!` unless the TUI has silenced output (see `quiet`).
+macro_rules! out {
+    ($($arg:tt)*) => {
+        if !$crate::quiet::is_quiet() {
+            println!($($arg)*);
+        }
+    };
+}
+
 mod analyzer;
 mod commands;
 mod config;
@@ -6,9 +24,13 @@ mod history;
 mod judge;
 mod leetcode;
 mod leitner;
+mod quiet;
 mod recorder;
 mod scaffold;
 mod stt;
+mod tui;
+
+use std::io::{self, IsTerminal};
 
 use clap::{CommandFactory, Parser, Subcommand};
 use commands::{
@@ -23,7 +45,10 @@ use commands::{
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
+    /// Print plain text instead of opening the terminal UI
+    #[arg(long, global = true)]
+    plain: bool,
 }
 
 #[derive(Subcommand)]
@@ -152,16 +177,80 @@ pub fn build_cli() -> clap::Command {
     Cli::command()
 }
 
-#[tokio::main]
-async fn main() {
+/// The TUI screen a command opens, when it has one.
+fn tui_route(cmd: &Command) -> Option<tui::Route> {
+    match cmd {
+        Command::Pull {
+            qid: None, refresh, ..
+        } => Some(tui::Route::Pull { refresh: *refresh }),
+        Command::Pull {
+            qid: Some(target),
+            force,
+            ..
+        } => Some(tui::Route::PullSlug {
+            target: target.clone(),
+            force: *force,
+        }),
+        Command::Record { id, force, resume } => Some(tui::Route::Record {
+            id: id.clone(),
+            force: *force,
+            resume: *resume,
+        }),
+        Command::Test {
+            id,
+            case,
+            timeout,
+            lang,
+            debug,
+            ..
+        } => Some(tui::Route::Test {
+            id: id.clone(),
+            case: *case,
+            timeout_ms: *timeout,
+            lang: lang.clone(),
+            debug: *debug,
+        }),
+        Command::Analyze {
+            id,
+            provider,
+            force,
+        } => Some(tui::Route::Analyze {
+            id: id.clone(),
+            provider: provider.clone(),
+            force: *force,
+        }),
+        Command::Push { id } => Some(tui::Route::Push { id: id.clone() }),
+        Command::Next { .. } => Some(tui::Route::Next),
+        _ => None,
+    }
+}
+
+fn main() {
     let _ = dotenvy::dotenv();
     stt::init_providers();
     analyzer::init_providers();
     judge::runtime::init_runtimes();
 
     let cli = Cli::parse();
+    let interactive = !cli.plain && io::stdout().is_terminal() && io::stdin().is_terminal();
 
     let result = match cli.command {
+        None if interactive => tui::run(tui::Route::Home),
+        None => Cli::command().print_help().map_err(|e| e.to_string()),
+        Some(cmd) => match tui_route(&cmd).filter(|_| interactive) {
+            Some(route) => tui::run(route),
+            None => run_plain(cmd),
+        },
+    };
+
+    if let Err(e) = result {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run_plain(command: Command) -> Result<(), String> {
+    match command {
         Command::Add { slug } => add::run(slug),
         Command::Init => init::run(),
         Command::Log {
@@ -171,7 +260,11 @@ async fn main() {
             date,
         } => log::run(id, rating, force, date),
         Command::Next { count } => next::run(count),
-        Command::Scrape { url, output } => scrape::run(url, output).await,
+        // Only scraping is async. Everything else uses blocking HTTP, which
+        // must not run inside a tokio runtime, so the runtime lives here.
+        Command::Scrape { url, output } => tokio::runtime::Runtime::new()
+            .map_err(|e| e.to_string())?
+            .block_on(scrape::run(url, output)),
         Command::Record { id, force, resume } => record::run(id, force, resume),
         Command::Transcribe {
             id,
@@ -199,10 +292,5 @@ async fn main() {
         Command::Push { id } => push::run(id),
         Command::Login { provider } => login::run(provider),
         Command::Completions { shell } => commands::completions::run(&shell),
-    };
-
-    if let Err(e) = result {
-        eprintln!("error: {e}");
-        std::process::exit(1);
     }
 }
