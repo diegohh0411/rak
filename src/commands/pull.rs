@@ -53,32 +53,76 @@ pub fn run(qid: Option<String>, refresh: bool, force: bool) -> Result<(), String
     };
 
     eprint!("Fetching {}... ", slug);
-    let detail = client.fetch_question_detail(&slug)?;
+    let outcome = scaffold_slug(&client, &cfg, &rak_toml_dir, &slug, force)?;
     eprintln!("done");
+
+    match outcome {
+        Scaffolded::Exists { folder, .. } if !force => eprintln!(
+            "Folder '{}' already exists — skipping scaffold (use --force to overwrite)",
+            folder
+        ),
+        Scaffolded::Exists { .. } => {}
+        Scaffolded::Created {
+            folder,
+            overwrote,
+            initialized,
+            ..
+        } => {
+            if overwrote {
+                eprintln!("Folder '{}' already exists — overwriting", folder);
+            }
+            eprintln!("Created {}/", folder);
+            if initialized {
+                eprintln!("Initialized in history.yaml");
+            }
+        }
+    }
+    Ok(())
+}
+
+/// What `scaffold_slug` did with the problem folder.
+pub enum Scaffolded {
+    /// The folder was already there and `force` was off, so nothing changed.
+    Exists { id: String, folder: String },
+    Created {
+        id: String,
+        folder: String,
+        overwrote: bool,
+        /// Whether the problem was added to history.yaml.
+        initialized: bool,
+    },
+}
+
+/// Fetch `slug` and write its folder, without printing anything.
+pub fn scaffold_slug(
+    client: &LeetcodeClient,
+    cfg: &config::RakConfig,
+    rak_toml_dir: &Path,
+    slug: &str,
+    force: bool,
+) -> Result<Scaffolded, String> {
+    let detail = client.fetch_question_detail(slug)?;
 
     let leetcode_dir = rak_toml_dir.join(&cfg.leetcode_dir);
     let folder_name = detail.summary.folder_name();
     let problem_dir = leetcode_dir.join(&folder_name);
+    let id = detail.summary.frontend_id.clone();
 
-    if problem_dir.is_dir() {
-        if !force {
-            eprintln!(
-                "Folder '{}' already exists — skipping scaffold (use --force to overwrite)",
-                folder_name
-            );
-            return Ok(());
-        }
-        eprintln!("Folder '{}' already exists — overwriting", folder_name);
+    let overwrote = problem_dir.is_dir();
+    if overwrote && !force {
+        return Ok(Scaffolded::Exists {
+            id,
+            folder: folder_name,
+        });
     }
 
     crate::scaffold::write(&detail, &leetcode_dir, &problem_dir)?;
-    eprintln!("Created {}/", folder_name);
 
     // Initialize in history.yaml
     let history_path = rak_toml_dir.join("history.yaml");
     let mut hist = crate::history::load(&history_path)?;
-    let qid_str = detail.summary.frontend_id.clone();
-    if let std::collections::btree_map::Entry::Vacant(e) = hist.problems.entry(qid_str) {
+    let mut initialized = false;
+    if let std::collections::btree_map::Entry::Vacant(e) = hist.problems.entry(id.clone()) {
         e.insert(crate::history::Problem {
             title: Some(detail.summary.title.clone()),
             difficulty: Some(detail.summary.difficulty.clone()),
@@ -88,10 +132,15 @@ pub fn run(qid: Option<String>, refresh: bool, force: bool) -> Result<(), String
             attempts: vec![],
         });
         crate::history::save(&history_path, &hist)?;
-        eprintln!("Initialized in history.yaml");
+        initialized = true;
     }
 
-    Ok(())
+    Ok(Scaffolded::Created {
+        id,
+        folder: folder_name,
+        overwrote,
+        initialized,
+    })
 }
 
 pub fn load_or_refresh_cache(
@@ -104,12 +153,12 @@ pub fn load_or_refresh_cache(
             if !cache::is_stale(&cached, CACHE_MAX_AGE_DAYS) {
                 return Ok(cached.problems);
             }
-            eprintln!("Problem list cache is stale (>7 days). Refreshing...");
+            say!("Problem list cache is stale (>7 days). Refreshing...");
         } else {
-            eprintln!("No problem list cache found. Fetching from LeetCode...");
+            say!("No problem list cache found. Fetching from LeetCode...");
         }
     } else {
-        eprintln!("Refreshing problem list cache...");
+        say!("Refreshing problem list cache...");
     }
 
     let problems = client.fetch_all_problems()?;
@@ -118,11 +167,11 @@ pub fn load_or_refresh_cache(
         problems: problems.clone(),
     };
     cache::save(rak_toml_dir, &pc)?;
-    eprintln!("Cached {} problems.", problems.len());
+    say!("Cached {} problems.", problems.len());
     Ok(problems)
 }
 
-fn resolve_by_id(
+pub(crate) fn resolve_by_id(
     id: u32,
     client: &LeetcodeClient,
     rak_toml_dir: &Path,

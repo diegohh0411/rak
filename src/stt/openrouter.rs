@@ -232,7 +232,7 @@ fn transcribe_chunked(
     let mut parts = Vec::new();
     let n = ranges.len();
     for (i, (start, duration)) in ranges.iter().enumerate() {
-        println!("  chunk {}/{n}...", i + 1);
+        out!("  chunk {}/{n}...", i + 1);
         let chunk_path = tmp.0.join(format!("chunk-{i:03}.mp3"));
         extract_chunk(audio_path, *start, *duration, &chunk_path)?;
         parts.push(transcribe_path(client, key, model, &chunk_path)?);

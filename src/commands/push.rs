@@ -5,6 +5,19 @@ use crate::leetcode::client::LeetcodeClient;
 use crate::leetcode::credentials;
 
 pub fn run(id: String) -> Result<(), String> {
+    let result = submit(&id, &mut |stage| eprintln!("{stage}..."))?;
+    eprintln!(); // newline after the dots
+    display_result(&result);
+    Ok(())
+}
+
+/// Submit the problem's solution and wait for the verdict. `stage` hears
+/// about each step as it starts.
+pub fn submit(
+    id: &str,
+    stage: &mut dyn FnMut(&str),
+) -> Result<crate::leetcode::models::CheckResult, String> {
+    let id = id.to_string();
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir)?;
     let problem_id = config::ProblemId::parse(&id);
@@ -21,9 +34,8 @@ pub fn run(id: String) -> Result<(), String> {
     let slug = slug_from_problem_dir(&problem_dir, &problem_id);
 
     // Fetch detail to get the internal questionId (required for submit body)
-    eprint!("Fetching question detail... ");
+    stage("Fetching question detail");
     let detail = client.fetch_question_detail(&slug)?;
-    eprintln!("done");
 
     let title_slug = &detail.summary.title_slug;
     let question_id = &detail.question_id;
@@ -35,15 +47,11 @@ pub fn run(id: String) -> Result<(), String> {
         ));
     }
 
-    eprintln!("Submitting {} ({})... ", title_slug, lang);
+    stage(&format!("Submitting {title_slug} ({lang})"));
     let submission_id = client.submit(title_slug, question_id, &lang, &code)?;
-    eprint!("Waiting for result");
+    stage("Waiting for result");
 
-    let result = client.poll_result(submission_id)?;
-    eprintln!(); // newline after the dots
-
-    display_result(&result);
-    Ok(())
+    client.poll_result(submission_id)
 }
 
 /// Read the latest solution file and detect its LeetCode language slug.

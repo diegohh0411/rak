@@ -80,7 +80,7 @@ fn read_pcm_chunk(pipe: &mut Box<dyn Read + Send>, num_bands: usize) -> Option<V
     Some(fft::analyze_bands(&samples, num_bands))
 }
 
-fn spawn_reader(mut pipe: Box<dyn Read + Send>, bands: Arc<Mutex<Vec<f64>>>) {
+pub(crate) fn spawn_reader(mut pipe: Box<dyn Read + Send>, bands: Arc<Mutex<Vec<f64>>>) {
     std::thread::spawn(move || {
         loop {
             let nb = bands.lock().unwrap().len();

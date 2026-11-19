@@ -341,7 +341,9 @@ impl LeetcodeClient {
             if attempt > 0 {
                 let delay = if attempt < 5 { 1000 } else { 2000 };
                 std::thread::sleep(std::time::Duration::from_millis(delay));
-                eprint!(".");
+                if !crate::quiet::is_quiet() {
+                    eprint!(".");
+                }
             }
 
             let resp = self.get_json(&url)?;

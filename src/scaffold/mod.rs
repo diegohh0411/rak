@@ -49,6 +49,11 @@ pub fn render(detail: &QuestionDetail) -> Result<Files, String> {
     })
 }
 
+/// The problem statement as plain Markdown, for previews.
+pub fn preview_text(detail: &QuestionDetail) -> String {
+    Question::new(detail).formatted_content()
+}
+
 /// Write the problem files into `problem_dir` and make sure the C++ support
 /// headers exist in `workspace_dir`.
 pub fn write(
