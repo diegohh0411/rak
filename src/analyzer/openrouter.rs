@@ -2,15 +2,13 @@ use crate::analyzer::{AnalysisContext, Analyzer};
 
 const DEFAULT_MODEL: &str = "~google/gemini-flash-latest";
 const CHAT_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
+const MODELS_URL: &str = "https://openrouter.ai/api/v1/models";
 
 pub struct OpenRouterAnalyzer {
     api_key: String,
     model: String,
     reasoning_effort: Option<String>,
 }
-
-pub const REASONING_EFFORTS: &[&str] =
-    &["max", "xhigh", "high", "medium", "low", "minimal", "none"];
 
 impl OpenRouterAnalyzer {
     pub fn new(api_key: String, model: String) -> Self {
@@ -31,15 +29,57 @@ impl OpenRouterAnalyzer {
     }
 }
 
-fn validate_effort(effort: &str) -> Result<(), String> {
-    if REASONING_EFFORTS.contains(&effort) {
-        Ok(())
-    } else {
-        Err(format!(
-            "invalid effort {effort:?} for openrouter (expected one of: {})",
-            REASONING_EFFORTS.join(", ")
-        ))
+/// Check `effort` against the model's `reasoning` metadata from
+/// `GET /api/v1/models` (see OpenRouter's "Discovering per-model reasoning
+/// options"). `models` is that endpoint's JSON response.
+///
+/// - model not listed: Ok (can't verify; let the chat request decide)
+/// - `reasoning` absent: the model exposes no effort selection → Err
+/// - `supported_efforts` null: every gateway effort is accepted → Ok
+/// - `supported_efforts` list: effort must be in it
+fn check_effort(models: &serde_json::Value, model: &str, effort: &str) -> Result<(), String> {
+    // Variant suffixes (`:free`, `:nitro`, …) share the base model's metadata.
+    let base = model.split(':').next().unwrap_or(model);
+    let Some(entry) = models["data"].as_array().and_then(|list| {
+        list.iter()
+            .find(|m| m["id"] == model || m["id"] == base || m["canonical_slug"] == base)
+    }) else {
+        return Ok(());
+    };
+
+    let Some(reasoning) = entry.get("reasoning").filter(|r| !r.is_null()) else {
+        return Err(format!(
+            "model {model:?} does not support setting effort on OpenRouter; remove `effort` from rak.toml"
+        ));
+    };
+
+    match reasoning
+        .get("supported_efforts")
+        .and_then(|v| v.as_array())
+    {
+        None => Ok(()),
+        Some(allowed) if allowed.iter().any(|e| e == effort) => Ok(()),
+        Some(allowed) => {
+            let allowed: Vec<&str> = allowed.iter().filter_map(|e| e.as_str()).collect();
+            Err(format!(
+                "invalid effort {effort:?} for model {model:?} (supported: {})",
+                allowed.join(", ")
+            ))
+        }
     }
+}
+
+/// Fetch the model catalogue. `None` on any failure: validation is
+/// best-effort and must not block analysis when the catalogue is unreachable.
+fn fetch_models(client: &reqwest::blocking::Client, key: &str) -> Option<serde_json::Value> {
+    client
+        .get(MODELS_URL)
+        .header("Authorization", format!("Bearer {key}"))
+        .send()
+        .ok()
+        .filter(|r| r.status().is_success())?
+        .json()
+        .ok()
 }
 
 fn chat_body(model: &str, prompt: &str, reasoning_effort: Option<&str>) -> serde_json::Value {
@@ -79,15 +119,17 @@ impl Analyzer for OpenRouterAnalyzer {
             self.api_key.clone()
         };
 
-        if let Some(effort) = &self.reasoning_effort {
-            validate_effort(effort)?;
-        }
-
         let prompt = ctx.build_prompt(system_prompt);
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(300))
             .build()
             .map_err(|e| format!("failed to build HTTP client: {e}"))?;
+
+        if let Some(effort) = &self.reasoning_effort
+            && let Some(models) = fetch_models(&client, &key)
+        {
+            check_effort(&models, &self.model, effort)?;
+        }
 
         let resp = client
             .post(CHAT_URL)
@@ -163,17 +205,46 @@ mod tests {
         assert_eq!(body["reasoning"]["exclude"], true);
     }
 
+    fn catalogue() -> serde_json::Value {
+        serde_json::json!({ "data": [
+            { "id": "~openai/gpt-sol-latest", "canonical_slug": "~openai/gpt-sol-latest",
+              "reasoning": { "supported_efforts": ["max", "xhigh", "high", "medium", "low"] } },
+            { "id": "acme/any-effort", "reasoning": { "supported_efforts": null } },
+            { "id": "acme/no-reasoning" }
+        ]})
+    }
+
     #[test]
-    fn invalid_reasoning_effort_is_rejected_before_request() {
-        let a = OpenRouterAnalyzer::new("key".into(), "".into())
-            .with_reasoning_effort(Some("turbo".into()));
-        let ctx = AnalysisContext {
-            question: "Q".into(),
-            solution: "S".into(),
-            transcripts: vec!["T".into()],
-        };
-        let err = a.analyze("p", &ctx).unwrap_err();
+    fn check_effort_accepts_supported_value() {
+        assert!(check_effort(&catalogue(), "~openai/gpt-sol-latest", "low").is_ok());
+    }
+
+    #[test]
+    fn check_effort_rejects_unsupported_value_and_lists_allowed() {
+        let err = check_effort(&catalogue(), "~openai/gpt-sol-latest", "none").unwrap_err();
         assert!(err.contains("invalid effort"), "{err}");
+        assert!(err.contains("max, xhigh, high, medium, low"), "{err}");
+    }
+
+    #[test]
+    fn check_effort_null_list_accepts_anything() {
+        assert!(check_effort(&catalogue(), "acme/any-effort", "minimal").is_ok());
+    }
+
+    #[test]
+    fn check_effort_rejects_model_without_reasoning() {
+        let err = check_effort(&catalogue(), "acme/no-reasoning", "low").unwrap_err();
+        assert!(err.contains("does not support setting effort"), "{err}");
+    }
+
+    #[test]
+    fn check_effort_matches_variant_suffix() {
+        assert!(check_effort(&catalogue(), "~openai/gpt-sol-latest:nitro", "none").is_err());
+    }
+
+    #[test]
+    fn check_effort_unknown_model_is_not_blocked() {
+        assert!(check_effort(&catalogue(), "acme/unlisted", "low").is_ok());
     }
 
     #[test]

@@ -85,7 +85,7 @@ impl Default for AnalyzeConfig {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ProviderConfig {
     pub model: Option<String>,
-    /// Reasoning effort (OpenRouter `reasoning.effort`): max, xhigh, high, medium, low, minimal, none.
+    /// Reasoning effort (OpenRouter `reasoning.effort`); allowed values depend on the model.
     #[serde(default)]
     pub effort: Option<String>,
 }

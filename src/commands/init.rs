@@ -51,7 +51,7 @@ model = "grok-4.6"
 
 [analyze.providers.openrouter]
 model = "~google/gemini-flash-latest"
-# effort = "low"   # max | xhigh | high | medium | low | minimal | none
+# effort = "low"   # allowed values depend on the model; checked against OpenRouter's model list
 
 [analyze.providers.codex]
 # model omitted: uses Codex's own default
