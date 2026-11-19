@@ -36,7 +36,7 @@ fn validate_effort(effort: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "invalid reasoning_effort {effort:?} for openrouter (expected one of: {})",
+            "invalid effort {effort:?} for openrouter (expected one of: {})",
             REASONING_EFFORTS.join(", ")
         ))
     }
@@ -173,7 +173,7 @@ mod tests {
             transcripts: vec!["T".into()],
         };
         let err = a.analyze("p", &ctx).unwrap_err();
-        assert!(err.contains("invalid reasoning_effort"), "{err}");
+        assert!(err.contains("invalid effort"), "{err}");
     }
 
     #[test]

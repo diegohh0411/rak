@@ -51,7 +51,7 @@ model = "grok-4.6"
 
 [analyze.providers.openrouter]
 model = "~google/gemini-flash-latest"
-# reasoning_effort = "low"   # max | xhigh | high | medium | low | minimal | none
+# effort = "low"   # max | xhigh | high | medium | low | minimal | none
 
 [analyze.providers.codex]
 # model omitted: uses Codex's own default

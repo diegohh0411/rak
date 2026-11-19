@@ -87,7 +87,7 @@ pub struct ProviderConfig {
     pub model: Option<String>,
     /// Reasoning effort (OpenRouter `reasoning.effort`): max, xhigh, high, medium, low, minimal, none.
     #[serde(default)]
-    pub reasoning_effort: Option<String>,
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

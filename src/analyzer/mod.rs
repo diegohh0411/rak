@@ -94,7 +94,7 @@ pub fn init_providers() {
             .unwrap_or("")
             .to_string();
         let reasoning_effort = config
-            .get("reasoning_effort")
+            .get("effort")
             .and_then(|v| v.as_str())
             .map(str::to_string);
         Box::new(

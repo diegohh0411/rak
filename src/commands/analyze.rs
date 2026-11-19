@@ -36,7 +36,7 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
     let provider_name = provider.as_deref().unwrap_or(&cfg.analyze.default_provider);
     let provider_config = cfg.analyze.providers.get(provider_name);
     let mut json_config = provider_config
-        .map(|pc| serde_json::json!({ "model": pc.model, "reasoning_effort": pc.reasoning_effort }))
+        .map(|pc| serde_json::json!({ "model": pc.model, "effort": pc.effort }))
         .unwrap_or_else(|| serde_json::json!({}));
 
     if let Some(creds) = credentials::get_provider(provider_name)
