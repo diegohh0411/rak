@@ -24,7 +24,7 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
         .unwrap_or_else(|_| "No question.md found".to_string());
 
     let solution = read_latest_solution(&problem_dir)?;
-    let transcripts = read_transcripts(&problem_dir);
+    let transcripts = label_transcripts(read_transcripts(&problem_dir));
 
     if transcripts.is_empty() {
         return Err(format!(
@@ -36,7 +36,7 @@ pub fn run(id: String, provider: Option<String>, force: bool) -> Result<(), Stri
     let provider_name = provider.as_deref().unwrap_or(&cfg.analyze.default_provider);
     let provider_config = cfg.analyze.providers.get(provider_name);
     let mut json_config = provider_config
-        .map(|pc| serde_json::json!({ "model": pc.model }))
+        .map(|pc| serde_json::json!({ "model": pc.model, "reasoning_effort": pc.reasoning_effort }))
         .unwrap_or_else(|| serde_json::json!({}));
 
     if let Some(creds) = credentials::get_provider(provider_name)
@@ -261,6 +261,21 @@ fn read_transcripts(dir: &Path) -> Vec<String> {
     entries.into_iter().map(|(_, content)| content).collect()
 }
 
+/// Prefix each transcript with its attempt number, flagging the last one as the
+/// latest so the analyzer can tell the most recent attempt apart from history.
+fn label_transcripts(transcripts: Vec<String>) -> Vec<String> {
+    let last = transcripts.len();
+    transcripts
+        .into_iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let n = i + 1;
+            let tag = if n == last { " (LATEST)" } else { "" };
+            format!("=== ATTEMPT {n} of {last}{tag} ===\n{t}")
+        })
+        .collect()
+}
+
 pub(crate) fn read_latest_solution(dir: &Path) -> Result<String, String> {
     let extensions = [
         ".cpp", ".py", ".go", ".java", ".rs", ".js", ".ts", ".c", ".cs",
@@ -312,6 +327,13 @@ mod tests {
         assert_eq!(transcripts[0], "first");
         assert_eq!(transcripts[1], "second");
         assert_eq!(transcripts[2], "tenth");
+    }
+
+    #[test]
+    fn label_transcripts_marks_latest_attempt() {
+        let labeled = label_transcripts(vec!["a".into(), "b".into()]);
+        assert_eq!(labeled[0], "=== ATTEMPT 1 of 2 ===\na");
+        assert_eq!(labeled[1], "=== ATTEMPT 2 of 2 (LATEST) ===\nb");
     }
 
     #[test]

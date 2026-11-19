@@ -6,7 +6,11 @@ const CHAT_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
 pub struct OpenRouterAnalyzer {
     api_key: String,
     model: String,
+    reasoning_effort: Option<String>,
 }
+
+pub const REASONING_EFFORTS: &[&str] =
+    &["max", "xhigh", "high", "medium", "low", "minimal", "none"];
 
 impl OpenRouterAnalyzer {
     pub fn new(api_key: String, model: String) -> Self {
@@ -17,15 +21,36 @@ impl OpenRouterAnalyzer {
             } else {
                 model
             },
+            reasoning_effort: None,
         }
+    }
+
+    pub fn with_reasoning_effort(mut self, effort: Option<String>) -> Self {
+        self.reasoning_effort = effort.filter(|e| !e.trim().is_empty());
+        self
     }
 }
 
-fn chat_body(model: &str, prompt: &str) -> serde_json::Value {
-    serde_json::json!({
+fn validate_effort(effort: &str) -> Result<(), String> {
+    if REASONING_EFFORTS.contains(&effort) {
+        Ok(())
+    } else {
+        Err(format!(
+            "invalid reasoning_effort {effort:?} for openrouter (expected one of: {})",
+            REASONING_EFFORTS.join(", ")
+        ))
+    }
+}
+
+fn chat_body(model: &str, prompt: &str, reasoning_effort: Option<&str>) -> serde_json::Value {
+    let mut body = serde_json::json!({
         "model": model,
         "messages": [{ "role": "user", "content": prompt }]
-    })
+    });
+    if let Some(effort) = reasoning_effort {
+        body["reasoning"] = serde_json::json!({ "effort": effort, "exclude": true });
+    }
+    body
 }
 
 fn extract_completion(result: &serde_json::Value) -> Result<String, String> {
@@ -54,6 +79,10 @@ impl Analyzer for OpenRouterAnalyzer {
             self.api_key.clone()
         };
 
+        if let Some(effort) = &self.reasoning_effort {
+            validate_effort(effort)?;
+        }
+
         let prompt = ctx.build_prompt(system_prompt);
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(300))
@@ -64,7 +93,11 @@ impl Analyzer for OpenRouterAnalyzer {
             .post(CHAT_URL)
             .header("Authorization", format!("Bearer {key}"))
             .header("Content-Type", "application/json")
-            .json(&chat_body(&self.model, &prompt))
+            .json(&chat_body(
+                &self.model,
+                &prompt,
+                self.reasoning_effort.as_deref(),
+            ))
             .send()
             .map_err(|e| format!("OpenRouter API request failed: {e}"))?;
 
@@ -116,10 +149,38 @@ mod tests {
 
     #[test]
     fn chat_body_is_a_single_user_message() {
-        let body = chat_body("~google/gemini-flash-latest", "hello");
+        let body = chat_body("~google/gemini-flash-latest", "hello", None);
         assert_eq!(body["model"], "~google/gemini-flash-latest");
         assert_eq!(body["messages"][0]["role"], "user");
         assert_eq!(body["messages"][0]["content"], "hello");
+        assert!(body.get("reasoning").is_none());
+    }
+
+    #[test]
+    fn chat_body_includes_reasoning_effort() {
+        let body = chat_body("m", "hello", Some("low"));
+        assert_eq!(body["reasoning"]["effort"], "low");
+        assert_eq!(body["reasoning"]["exclude"], true);
+    }
+
+    #[test]
+    fn invalid_reasoning_effort_is_rejected_before_request() {
+        let a = OpenRouterAnalyzer::new("key".into(), "".into())
+            .with_reasoning_effort(Some("turbo".into()));
+        let ctx = AnalysisContext {
+            question: "Q".into(),
+            solution: "S".into(),
+            transcripts: vec!["T".into()],
+        };
+        let err = a.analyze("p", &ctx).unwrap_err();
+        assert!(err.contains("invalid reasoning_effort"), "{err}");
+    }
+
+    #[test]
+    fn blank_reasoning_effort_is_ignored() {
+        let a =
+            OpenRouterAnalyzer::new("k".into(), "".into()).with_reasoning_effort(Some(" ".into()));
+        assert!(a.reasoning_effort.is_none());
     }
 
     #[test]
