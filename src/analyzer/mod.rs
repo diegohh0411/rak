@@ -93,7 +93,14 @@ pub fn init_providers() {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        Box::new(openrouter::OpenRouterAnalyzer::new(api_key, model))
+        let reasoning_effort = config
+            .get("effort")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        Box::new(
+            openrouter::OpenRouterAnalyzer::new(api_key, model)
+                .with_reasoning_effort(reasoning_effort),
+        )
     });
     register("codex", |config| {
         let model = config

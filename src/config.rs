@@ -60,16 +60,16 @@ PROBLEM:
 MY SOLUTION (latest attempt):
 {solution}
 
-MY VOICE NOTES:
+MY VOICE NOTES (one per attempt, oldest first; the last one is marked LATEST):
 {transcripts}
 
 Provide:
-1. Brief overview of how the problem went
-2. What I did well
-3. What I struggled with / areas to improve
+1. Brief overview of how the problem went. This is the ONLY section that may draw on the full history of attempts (e.g. how my approach evolved across attempts).
+2. What I did well — in the LATEST attempt only. Do not credit things from earlier attempts.
+3. What I struggled with / areas to improve — in the LATEST attempt only. Ignore struggles from earlier attempts that I no longer had. This section is the most important one: be specific and concrete, since it is what I will use to prepare for my next attempt.
 4. Improvement guide: if the solution was unsolved, suboptimal, or inefficient, provide a concrete guide on how to solve or optimize it. Include the key algorithm/data structure to use, time/space complexity, and a brief pseudocode outline of the improved approach. If the solution is already optimal, skip this section.
 
-Focus on identifying strengths, weaknesses, and actionable feedback for future practice."#.to_string()
+Focus on actionable feedback that prepares me for my next attempt, prioritizing the struggles from my latest attempt."#.to_string()
 }
 
 impl Default for AnalyzeConfig {
@@ -85,6 +85,9 @@ impl Default for AnalyzeConfig {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ProviderConfig {
     pub model: Option<String>,
+    /// Reasoning effort (OpenRouter `reasoning.effort`); allowed values depend on the model.
+    #[serde(default)]
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
