@@ -9,7 +9,39 @@ use crate::leitner;
 
 const DEFAULT_HISTORY: &str = "history.yaml";
 
+/// What `record` changed, for callers that report it their own way.
+pub struct Logged {
+    pub date: NaiveDate,
+    pub old_box: u8,
+    pub new_box: u8,
+    pub streak: u8,
+}
+
 pub fn run(id: String, rating: u8, force: bool, date: Option<String>) -> Result<(), String> {
+    let logged = record(&id, rating, force, date)?;
+    let Logged {
+        date: target_date,
+        old_box,
+        new_box,
+        streak: new_streak,
+    } = logged;
+    if force {
+        eprintln!(
+            "Replaced {} on {} → rating {}, box {}→{}, streak {}/3",
+            id, target_date, rating, old_box, new_box, new_streak
+        );
+    } else {
+        eprintln!(
+            "Logged {} on {} → rating {}, box {}→{}, streak {}/3",
+            id, target_date, rating, old_box, new_box, new_streak
+        );
+    }
+    Ok(())
+}
+
+/// Save a rating for `id` without printing anything.
+pub fn record(id: &str, rating: u8, force: bool, date: Option<String>) -> Result<Logged, String> {
+    let id = id.to_string();
     let config_dir = std::env::current_dir().map_err(|e| e.to_string())?;
     let cfg = config::load(&config_dir).ok();
 
@@ -48,20 +80,14 @@ pub fn run(id: String, rating: u8, force: bool, date: Option<String>) -> Result<
     }
 
     let path = Path::new(DEFAULT_HISTORY);
-    let (old_box, new_box, new_streak) =
+    let (old_box, new_box, streak) =
         log_to_file(path, &id, rating, force, target_date, title, difficulty)?;
-    if force {
-        eprintln!(
-            "Replaced {} on {} → rating {}, box {}→{}, streak {}/3",
-            id, target_date, rating, old_box, new_box, new_streak
-        );
-    } else {
-        eprintln!(
-            "Logged {} on {} → rating {}, box {}→{}, streak {}/3",
-            id, target_date, rating, old_box, new_box, new_streak
-        );
-    }
-    Ok(())
+    Ok(Logged {
+        date: target_date,
+        old_box,
+        new_box,
+        streak,
+    })
 }
 
 /// Replay all attempts in order to derive the current box and streak.

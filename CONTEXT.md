@@ -22,3 +22,11 @@ _Avoid_: compiler, toolchain, language provider
 **Verdict**:
 The judged outcome of one test case: Accepted, Wrong Answer, Runtime Error, Time Limit Exceeded, Invalid Input, or No expected output.
 _Avoid_: result, status
+
+**Workspace** (TUI):
+The one interactive screen `rak` opens: a sidebar listing problems, and for the selected problem six tabs (Question, Tests, Record, Analysis, Submit, History). Every interactive command opens it on the matching tab.
+_Avoid_: dashboard, app
+
+**Job**:
+Work the TUI runs on a background thread so the screen stays live: a test run, the transcribe-then-analyze pipeline after a recording, a submission, a LeetCode fetch. Jobs report back with a message; they never print.
+_Avoid_: task, worker
